@@ -37,17 +37,18 @@ export async function POST(req: Request) {
         console.log("original content length:", content.length);
 
         return NextResponse.json({ content: cleanedResponse });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('AI Refine Error:', error);
 
+        const errorMessage = error instanceof Error ? error.message : String(error);
         // Handle Rate Limits specifically
-        if (error.message?.includes('429') || error.message?.includes('quota') || error.status === 429) {
+        if (errorMessage.includes('429') || errorMessage.includes('quota')) {
             return NextResponse.json(
                 { error: 'AI limit reached. Please wait a moment and try again.' },
                 { status: 429 }
             );
         }
 
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: errorMessage }, { status: 500 });
     }
 }

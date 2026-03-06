@@ -6,11 +6,13 @@ import { useForm } from 'react-hook-form';
 import { useAuth } from '@/components/auth/AuthProvider';
 import Editor from '@/components/email/Editor';
 import { supabase } from '@/lib/supabase';
-import { ArrowLeft, Save, Send, Loader2, Eye, FileText, Sparkles, Mail, AlertTriangle, X, Minimize2, Maximize2, Plus, List, Clock } from 'lucide-react';
+import { ArrowLeft, Save, Send, Loader2, Eye, FileText, Sparkles, Mail, AlertTriangle, X, Plus, List, Clock, Bot, LayoutTemplate, Settings } from 'lucide-react';
 import EmailPreview from '@/components/email/EmailPreview';
 import EmailSelectionModal from '@/components/email/EmailSelectionModal';
+import TemplateManagerModal from '@/components/email/TemplateManagerModal';
 import { useLanguage } from '@/components/providers/LanguageProvider';
 import { toast } from 'sonner';
+import ChatSidebar from '@/components/email/ChatSidebar';
 
 type FormData = {
     recipients: string;
@@ -35,14 +37,15 @@ export default function ComposeWindow({ initialRecipients = [], isModal = false,
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
     const [isDraftsOpen, setIsDraftsOpen] = useState(false);
-    const [drafts, setDrafts] = useState<any[]>([]);
-    const [draftToLoad, setDraftToLoad] = useState<any | null>(null);
+    const [drafts, setDrafts] = useState<Array<{ id: string, subject: string, updated_at: string, content_html?: string, recipients_json?: string[] }>>([]);
+    const [draftToLoad, setDraftToLoad] = useState<{ id: string, subject: string, updated_at: string, content_html?: string, recipients_json?: string[] } | null>(null);
     const [attachments, setAttachments] = useState<{ filename: string, content: string, encoding: 'base64' }[]>([]);
     const [showDate, setShowDate] = useState(true);
     const [scheduledAt, setScheduledAt] = useState(''); // New State for Scheduling
+    const [templates, setTemplates] = useState<{ id: string, name: string, is_default: boolean }[]>([]);
+    const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
 
     const [isUndoable, setIsUndoable] = useState(false);
-    const [countdown, setCountdown] = useState(0);
     const undoTimerRef = useRef<NodeJS.Timeout | null>(null);
     const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -52,6 +55,11 @@ export default function ComposeWindow({ initialRecipients = [], isModal = false,
     const [isAILoading, setIsAILoading] = useState(false);
 
     const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+    const [isTemplateManagerOpen, setIsTemplateManagerOpen] = useState(false);
+
+    // New state and ref for the chat sidebar at layout level
+    const [isChatSidebarOpen, setIsChatSidebarOpen] = useState(false);
+    const insertContentRef = useRef<((html: string) => void) | null>(null);
 
     const { register, handleSubmit, getValues, setValue, formState: { errors } } = useForm<FormData>({
         defaultValues: {
@@ -65,6 +73,22 @@ export default function ComposeWindow({ initialRecipients = [], isModal = false,
             setValue('recipients', initialRecipients.join(', '));
         }
     }, [initialRecipients, setValue]);
+
+    const fetchTemplates = async () => {
+        const { data } = await supabase.from('templates').select('id, name, is_default').order('created_at', { ascending: false });
+        if (data) {
+            setTemplates(data);
+            const defaultTemplate = data.find(t => t.is_default);
+            setSelectedTemplateId(prev => {
+                if (data.find(t => t.id === prev)) return prev;
+                return defaultTemplate ? defaultTemplate.id : '';
+            });
+        }
+    };
+
+    useEffect(() => {
+        fetchTemplates();
+    }, []);
 
     // ... AI Handlers ...
     const openAIModal = (mode: 'generate' | 'refine') => {
@@ -115,8 +139,8 @@ export default function ComposeWindow({ initialRecipients = [], isModal = false,
                 toast.success(dict.ai.success_refined);
             }
             setIsAIModalOpen(false);
-        } catch (error: any) {
-            toast.error(error.message || dict.ai.error_generic);
+        } catch (error: unknown) {
+            toast.error(error instanceof Error ? error.message : dict.ai.error_generic);
         } finally {
             setIsAILoading(false);
         }
@@ -127,7 +151,7 @@ export default function ComposeWindow({ initialRecipients = [], isModal = false,
         // ... (Keep existing) ...
         if (e.target.files && e.target.files.length > 0) {
             const files = Array.from(e.target.files);
-            const newAttachments: any[] = [];
+            const newAttachments: { filename: string, content: string, encoding: 'base64' }[] = [];
             for (const file of files) {
                 const reader = new FileReader();
                 reader.readAsDataURL(file);
@@ -190,6 +214,7 @@ export default function ComposeWindow({ initialRecipients = [], isModal = false,
                         content: content,
                         userEmail: user?.email,
                         attachments: attachments,
+                        templateId: selectedTemplateId || undefined,
                         // Ensure Timezone is respected:
                         // Input is local (YYYY-MM-DDTHH:mm). new Date() assumes browser local time.
                         // toISOString() converts it to UTC.
@@ -211,8 +236,8 @@ export default function ComposeWindow({ initialRecipients = [], isModal = false,
                         toast.success('Emails queued successfully');
                     }, 1500);
                 }
-            } catch (error: any) {
-                setMessage({ type: 'error', text: error.message });
+            } catch (error: unknown) {
+                setMessage({ type: 'error', text: error instanceof Error ? error.message : String(error) });
             } finally {
                 setIsLoading(false);
             }
@@ -251,6 +276,7 @@ export default function ComposeWindow({ initialRecipients = [], isModal = false,
                         senderEmail: user?.email,
                         attachments: attachments,
                         showDate: showDate,
+                        templateId: selectedTemplateId || undefined,
                     }),
                 });
 
@@ -286,8 +312,8 @@ export default function ComposeWindow({ initialRecipients = [], isModal = false,
                 }, 1500);
             }
 
-        } catch (error: any) {
-            setMessage({ type: 'error', text: error.message });
+        } catch (error: unknown) {
+            setMessage({ type: 'error', text: error instanceof Error ? error.message : String(error) });
         } finally {
             setIsLoading(false);
             isSendingCancelled.current = false;
@@ -337,8 +363,8 @@ export default function ComposeWindow({ initialRecipients = [], isModal = false,
             if (error) throw error;
 
             setMessage({ type: 'success', text: dict.compose.draft_saved });
-        } catch (error: any) {
-            setMessage({ type: 'error', text: 'Failed to save draft: ' + error.message });
+        } catch (error: unknown) {
+            setMessage({ type: 'error', text: 'Failed to save draft: ' + (error instanceof Error ? error.message : String(error)) });
         } finally {
             setIsLoading(false);
         }
@@ -354,31 +380,31 @@ export default function ComposeWindow({ initialRecipients = [], isModal = false,
                 .order('updated_at', { ascending: false });
             if (error) throw error;
             setDrafts(data || []);
-        } catch (error: any) {
-            alert('Failed to load drafts: ' + error.message);
+        } catch (error: unknown) {
+            alert('Failed to load drafts: ' + (error instanceof Error ? error.message : String(error)));
         }
     };
 
-    const confirmLoadDraft = (draft: any) => {
-        setValue('subject', draft.subject || '');
+    const confirmLoadDraft = (draft: { id?: string, subject?: string, updated_at?: string, content_html?: string, recipients_json?: string[] }) => {
+        setValue('subject', (draft.subject as string) || '');
         const recipients = Array.isArray(draft.recipients_json)
             ? draft.recipients_json.join(', ')
             : '';
 
         setValue('recipients', recipients);
-        setContent(draft.content_html || '');
+        setContent((draft.content_html as string) || '');
         setIsDraftsOpen(false);
         setDraftToLoad(null);
     };
 
     // Render classes based on isModal
     const containerClasses = isModal
-        ? "fixed inset-0 z-[60] bg-gray-100 dark:bg-gray-950 animate-in fade-in slide-in-from-bottom-4 overflow-y-auto" // Full screen modal with scroll
-        : "min-h-screen bg-gray-50 dark:bg-gray-950 pb-20"; // Normal page
+        ? "fixed inset-0 z-[60] bg-gray-100 dark:bg-gray-950 animate-in fade-in slide-in-from-bottom-4 flex flex-col"
+        : "h-[calc(100vh-64px)] overflow-hidden bg-gray-50 dark:bg-gray-950 flex flex-col";
 
     const innerClasses = isModal
-        ? "max-w-7xl w-full mx-auto px-4 py-4 md:py-6" // flows naturally
-        : "max-w-6xl mx-auto px-4 py-8";
+        ? "max-w-7xl w-full mx-auto px-4 py-4 md:py-6 flex-1 flex flex-col min-h-0"
+        : "max-w-[100rem] w-full mx-auto px-4 py-8 flex-1 flex flex-col min-h-0";
 
     return (
         <div className={containerClasses}>
@@ -408,6 +434,14 @@ export default function ComposeWindow({ initialRecipients = [], isModal = false,
                         >
                             <Sparkles className="w-3 h-3 md:w-4 md:h-4 text-yellow-300" />
                             <span className="truncate">{dict.ai.btn_generate}</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setIsChatSidebarOpen(true)}
+                            className="justify-center px-2 py-1.5 md:px-4 md:py-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white border-0 rounded-lg font-bold transition-all flex items-center gap-1.5 md:gap-2 shadow-md hover:shadow-lg text-[10px] md:text-sm"
+                        >
+                            <Bot className="w-3 h-3 md:w-4 md:h-4 text-white" />
+                            <span className="truncate">{dict.ai_chat.title}</span>
                         </button>
                         <button
                             type="button"
@@ -481,160 +515,210 @@ export default function ComposeWindow({ initialRecipients = [], isModal = false,
                     </div>
                 )}
 
-                <form id="compose-form" onSubmit={handleSubmit(onSubmit)} className="space-y-6 flex flex-col">
-                    {/* Metadata Card */}
-                    <div className="grid gap-4 md:gap-6 bg-white dark:bg-gray-900/50 p-4 md:p-8 rounded-2xl shadow-md border-t-4 border-[#39285e] dark:border-[#79bbe0] shrink-0">
-                        <div className="grid md:grid-cols-2 gap-4 md:gap-6">
-                            <div className="space-y-1.5 md:space-y-2">
-                                <label className="block font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider text-[10px] md:text-xs">{dict.compose.recipients}</label>
-                                <div className="flex gap-2">
-                                    <div className="relative flex-1">
-                                        <div className="absolute inset-y-0 left-0 rtl:right-0 rtl:left-auto pl-3 rtl:pr-3 rtl:pl-0 flex items-center pointer-events-none">
-                                            <Mail className="h-4 w-4 md:h-5 md:w-5 text-gray-400" />
+                <form id="compose-form" onSubmit={handleSubmit(onSubmit)} className="space-y-0 flex flex-col flex-1 min-h-0">
+                    <div className="flex w-full gap-4 md:gap-6 flex-1 min-h-0">
+                        {/* Main Editor Column */}
+                        <div className="flex-1 flex flex-col space-y-4 md:space-y-6 overflow-y-auto min-h-0 pb-4 pr-1">
+                            {/* Metadata Card */}
+                            <div className="grid gap-4 md:gap-6 bg-white dark:bg-gray-900/50 p-4 md:p-8 rounded-2xl shadow-sm border-t-4 border-[#39285e] dark:border-[#79bbe0] shrink-0">
+                                <div className="grid md:grid-cols-2 gap-4 md:gap-6">
+                                    <div className="space-y-1.5 md:space-y-2">
+                                        <label className="block font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider text-[10px] md:text-xs">{dict.compose.recipients}</label>
+                                        <div className="flex gap-2">
+                                            <div className="relative flex-1">
+                                                <div className="absolute inset-y-0 start-0 pl-3 flex items-center pointer-events-none">
+                                                    <Mail className="h-4 w-4 md:h-5 md:w-5 text-gray-400" />
+                                                </div>
+                                                <input
+                                                    {...register('recipients', { required: 'Recipients are required' })}
+                                                    type="text"
+                                                    placeholder={dict.compose.recipients_placeholder}
+                                                    className="w-full ps-9 md:ps-10 pe-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-[#79bbe0] focus:border-transparent dark:text-white outline-none transition-all placeholder:text-gray-400 text-sm"
+                                                />
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => setIsEmailModalOpen(true)}
+                                                className="px-4 py-2 bg-[#79bbe0]/10 hover:bg-[#79bbe0]/20 text-[#79bbe0] border border-[#79bbe0]/30 rounded-xl transition-colors flex items-center justify-center shrink-0"
+                                                title={dict.sidebar?.hotels || "Add from Hotels Database"}
+                                            >
+                                                <Plus className="w-5 h-5" />
+                                            </button>
                                         </div>
+                                        {errors.recipients && <p className="text-red-500 text-xs md:text-sm">{errors.recipients.message}</p>}
+                                    </div>
+
+                                    <div className="space-y-1.5 md:space-y-2">
+                                        <label className="block font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider text-[10px] md:text-xs">{dict.compose.subject}</label>
                                         <input
-                                            {...register('recipients', { required: 'Recipients are required' })}
+                                            {...register('subject', { required: 'Subject is required' })}
                                             type="text"
-                                            placeholder={dict.compose.recipients_placeholder}
-                                            className="w-full pl-9 rtl:pr-9 rtl:pl-4 md:pl-10 md:rtl:pr-10 pr-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-[#79bbe0] focus:border-transparent dark:text-white outline-none transition-all placeholder:text-gray-400 text-sm"
+                                            placeholder={dict.compose.subject_placeholder}
+                                            className="w-full px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-[#79bbe0] focus:border-transparent dark:text-white outline-none transition-all placeholder:text-gray-400 text-sm"
+                                        />
+                                        {errors.subject && <p className="text-red-500 text-xs md:text-sm">{errors.subject.message}</p>}
+                                    </div>
+                                </div>
+
+                                {/* Template Selector */}
+                                <div className="space-y-1.5 md:space-y-2 mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <LayoutTemplate className="w-4 h-4 text-[#79bbe0]" />
+                                        <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                                            {dict.templates.select_template}
+                                        </label>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <select
+                                            value={selectedTemplateId}
+                                            onChange={(e) => setSelectedTemplateId(e.target.value)}
+                                            className="flex-1 px-4 py-2 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-[#79bbe0] outline-none text-sm dark:text-white"
+                                        >
+                                            <option value="">{dict.templates.system_default}</option>
+                                            {templates.map(t => (
+                                                <option key={t.id} value={t.id}>
+                                                    {t.name} {t.is_default ? `(${dict.templates.is_default})` : ''}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsTemplateManagerOpen(true)}
+                                            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 rounded-xl transition-colors flex items-center justify-center shrink-0"
+                                            title={dict.templates.manage_templates}
+                                        >
+                                            <Settings className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Schedule Input (Queue Mode Only) */}
+                                {mode === 'queue' && (
+                                    <div className="pt-4 mt-4 border-t border-gray-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-2">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <Clock className="w-4 h-4 text-indigo-500" />
+                                            <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                                                {dict.compose.schedule_label || 'Schedule Sending (Optional)'}
+                                            </label>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <input
+                                                type="datetime-local"
+                                                value={scheduledAt}
+                                                onChange={(e) => setScheduledAt(e.target.value)}
+                                                className="px-4 py-2 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-[#79bbe0] outline-none text-sm dark:text-white w-full md:w-auto"
+                                            />
+                                            {scheduledAt && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setScheduledAt('')}
+                                                    className="text-gray-400 hover:text-red-500 transition-colors text-xs"
+                                                >
+                                                    {dict.compose.schedule_clear || 'Clear'}
+                                                </button>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center justify-between mt-1">
+                                            <p className="text-[10px] text-gray-400">
+                                                {dict.compose.schedule_hint || 'Leave empty for immediate processing.'}
+                                            </p>
+                                            <p className="text-[10px] text-indigo-500 font-medium">
+                                                {dict.compose.timezone_label || 'Your Timezone:'} {Intl.DateTimeFormat().resolvedOptions().timeZone}
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Date Toggle Switch (Existing) */}
+                                <div className="flex items-center gap-3 pt-4 border-t border-gray-100 dark:border-gray-800 mt-4">
+                                    <div
+                                        className={`w-12 h-6 rounded-full p-1 cursor-pointer transition-colors duration-200 ease-in-out ${showDate ? 'bg-indigo-600' : 'bg-gray-300 dark:bg-gray-700'}`}
+                                        onClick={() => setShowDate(!showDate)}
+                                        title={showDate ? (dict.compose?.hide_date || "Hide Date Line") : (dict.compose?.show_date || "Show Date Line")}
+                                        dir="ltr"
+                                    >
+                                        <div
+                                            className={`bg-white w-4 h-4 rounded-full shadow-md transform duration-200 ease-in-out ${showDate
+                                                ? 'translate-x-6'
+                                                : 'translate-x-0'
+                                                }`}
                                         />
                                     </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => setIsEmailModalOpen(true)}
-                                        className="px-4 py-2 bg-[#79bbe0]/10 hover:bg-[#79bbe0]/20 text-[#79bbe0] border border-[#79bbe0]/30 rounded-xl transition-colors flex items-center justify-center shrink-0"
-                                        title={language === 'ar' ? "إضافة من الفنادق" : "Add from Hotels Database"}
-                                    >
-                                        <Plus className="w-5 h-5" />
-                                    </button>
-                                </div>
-                                {errors.recipients && <p className="text-red-500 text-xs md:text-sm">{errors.recipients.message}</p>}
-                            </div>
-
-                            <div className="space-y-1.5 md:space-y-2">
-                                <label className="block font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider text-[10px] md:text-xs">{dict.compose.subject}</label>
-                                <input
-                                    {...register('subject', { required: 'Subject is required' })}
-                                    type="text"
-                                    placeholder={dict.compose.subject_placeholder}
-                                    className="w-full px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-[#79bbe0] focus:border-transparent dark:text-white outline-none transition-all placeholder:text-gray-400 text-sm"
-                                />
-                                {errors.subject && <p className="text-red-500 text-xs md:text-sm">{errors.subject.message}</p>}
-                            </div>
-                        </div>
-
-                        {/* Schedule Input (Queue Mode Only) */}
-                        {mode === 'queue' && (
-                            <div className="pt-4 mt-4 border-t border-gray-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-2">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <Clock className="w-4 h-4 text-indigo-500" />
-                                    <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                                        {dict.compose.schedule_label || 'Schedule Sending (Optional)'}
-                                    </label>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    <input
-                                        type="datetime-local"
-                                        value={scheduledAt}
-                                        onChange={(e) => setScheduledAt(e.target.value)}
-                                        className="px-4 py-2 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-[#79bbe0] outline-none text-sm dark:text-white w-full md:w-auto"
-                                    />
-                                    {scheduledAt && (
-                                        <button
-                                            type="button"
-                                            onClick={() => setScheduledAt('')}
-                                            className="text-gray-400 hover:text-red-500 transition-colors text-xs"
-                                        >
-                                            {dict.compose.schedule_clear || 'Clear'}
-                                        </button>
-                                    )}
-                                </div>
-                                <div className="flex items-center justify-between mt-1">
-                                    <p className="text-[10px] text-gray-400">
-                                        {dict.compose.schedule_hint || 'Leave empty for immediate processing.'}
-                                    </p>
-                                    <p className="text-[10px] text-indigo-500 font-medium">
-                                        {dict.compose.timezone_label || 'Your Timezone:'} {Intl.DateTimeFormat().resolvedOptions().timeZone}
-                                    </p>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Date Toggle Switch (Existing) */}
-                        <div className="flex items-center gap-3 pt-4 border-t border-gray-100 dark:border-gray-800 mt-4">
-                            <div
-                                className={`w-12 h-6 rounded-full p-1 cursor-pointer transition-colors duration-200 ease-in-out ${showDate ? 'bg-indigo-600' : 'bg-gray-300 dark:bg-gray-700'}`}
-                                onClick={() => setShowDate(!showDate)}
-                                title={showDate ? (dict.compose?.hide_date || "Hide Date Line") : (dict.compose?.show_date || "Show Date Line")}
-                                dir="ltr"
-                            >
-                                <div
-                                    className={`bg-white w-4 h-4 rounded-full shadow-md transform duration-200 ease-in-out ${showDate
-                                        ? 'translate-x-6'
-                                        : 'translate-x-0'
-                                        }`}
-                                />
-                            </div>
-                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300 select-none cursor-pointer" onClick={() => setShowDate(!showDate)}>
-                                {showDate ? (dict.compose?.show_date || "Show Date Line") : (dict.compose?.hide_date || "Hide Date Line")}
-                            </span>
-                        </div>
-                    </div>
-
-                    {/* Content Editor Card */}
-                    <div className="bg-white dark:bg-gray-900/50 rounded-2xl shadow-md border border-gray-100 dark:border-gray-800 overflow-hidden flex-1 flex flex-col min-h-[400px]">
-                        <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50/50 dark:bg-gray-800/30 shrink-0">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-[#39285e]/10 dark:bg-[#79bbe0]/10 rounded-lg">
-                                    <FileText className="w-5 h-5 text-[#39285e] dark:text-[#79bbe0]" />
-                                </div>
-                                <div>
-                                    <h3 className="font-semibold text-gray-900 dark:text-white">{dict.compose.content_title}</h3>
-                                    <p className="text-xs text-gray-500">{dict.compose.content_desc}</p>
+                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300 select-none cursor-pointer" onClick={() => setShowDate(!showDate)}>
+                                        {showDate ? (dict.compose?.show_date || "Show Date Line") : (dict.compose?.hide_date || "Hide Date Line")}
+                                    </span>
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-2">
-                                <input
-                                    type="file"
-                                    id="file-upload"
-                                    multiple
-                                    className="hidden"
-                                    onChange={handleFileChange}
-                                />
-                                <label
-                                    htmlFor="file-upload"
-                                    className="cursor-pointer px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-700 dark:text-gray-300 hover:text-[#79bbe0] hover:border-[#79bbe0] transition-colors flex items-center gap-2 text-sm font-medium shadow-sm group"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="group-hover:stroke-[#79bbe0] transition-colors"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" /></svg>
-                                    {dict.compose.attach_file}
-                                </label>
-                            </div>
-                        </div>
-
-                        {/* Attachments List */}
-                        {attachments.length > 0 && (
-                            <div className="px-4 pt-4 flex flex-wrap gap-2 shrink-0">
-                                {attachments.map((file, index) => (
-                                    <div key={index} className="flex items-center gap-2 px-3 py-1.5 bg-[#79bbe0]/10 border border-[#79bbe0]/20 rounded-lg text-sm text-[#39285e] dark:text-[#79bbe0] shadow-sm animate-in fade-in zoom-in-95">
-                                        <span className="truncate max-w-[200px] font-medium">{file.filename}</span>
-                                        <button
-                                            type="button"
-                                            onClick={() => removeAttachment(index)}
-                                            className="text-gray-400 hover:text-red-500 transition-colors p-0.5 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20"
-                                        >
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
-                                        </button>
+                            {/* Content Editor Card */}
+                            <div className="bg-white dark:bg-gray-900/50 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden flex-1 flex flex-col min-h-[400px]">
+                                <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50/50 dark:bg-gray-800/30 shrink-0">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-[#39285e]/10 dark:bg-[#79bbe0]/10 rounded-lg">
+                                            <FileText className="w-5 h-5 text-[#39285e] dark:text-[#79bbe0]" />
+                                        </div>
+                                        <div>
+                                            <h3 className="font-semibold text-gray-900 dark:text-white">{dict.compose.content_title}</h3>
+                                            <p className="text-xs text-gray-500">{dict.compose.content_desc}</p>
+                                        </div>
                                     </div>
-                                ))}
-                            </div>
-                        )}
 
-                        <div className="p-4 flex-1 flex flex-col h-full">
-                            <div className="rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 flex-1 flex flex-col max-h-[60vh] min-h-[300px]">
-                                <Editor key={editorKey} value={content} onChange={setContent} onRefine={() => openAIModal('refine')} />
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="file"
+                                            id="file-upload"
+                                            multiple
+                                            className="hidden"
+                                            onChange={handleFileChange}
+                                        />
+                                        <label
+                                            htmlFor="file-upload"
+                                            className="cursor-pointer px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-700 dark:text-gray-300 hover:text-[#79bbe0] hover:border-[#79bbe0] transition-colors flex items-center gap-2 text-sm font-medium shadow-sm group"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="group-hover:stroke-[#79bbe0] transition-colors"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" /></svg>
+                                            {dict.compose.attach_file}
+                                        </label>
+                                    </div>
+                                </div>
+
+                                {/* Attachments List */}
+                                {attachments.length > 0 && (
+                                    <div className="px-4 pt-4 flex flex-wrap gap-2 shrink-0">
+                                        {attachments.map((file, index) => (
+                                            <div key={index} className="flex items-center gap-2 px-3 py-1.5 bg-[#79bbe0]/10 border border-[#79bbe0]/20 rounded-lg text-sm text-[#39285e] dark:text-[#79bbe0] shadow-sm animate-in fade-in zoom-in-95">
+                                                <span className="truncate max-w-[200px] font-medium">{file.filename}</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeAttachment(index)}
+                                                    className="text-gray-400 hover:text-red-500 transition-colors p-0.5 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20"
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                <div className="p-4 flex-1 flex flex-col h-full min-h-0">
+                                    <div className="rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 flex-1 flex flex-col h-full min-h-[300px]">
+                                        <Editor
+                                            key={editorKey}
+                                            value={content}
+                                            onChange={setContent}
+                                            onRefine={() => setIsChatSidebarOpen(true)}
+                                            insertContentRef={insertContentRef}
+                                        />
+                                    </div>
+                                </div>
                             </div>
                         </div>
+                        {/* End Main Editor Column */}
+
+                        <ChatSidebar
+                            isOpen={isChatSidebarOpen}
+                            onClose={() => setIsChatSidebarOpen(false)}
+                            onInsertContent={(html) => insertContentRef.current?.(html)}
+                        />
                     </div>
                 </form >
 
@@ -642,7 +726,7 @@ export default function ComposeWindow({ initialRecipients = [], isModal = false,
                     isOpen={isPreviewOpen}
                     onClose={() => setIsPreviewOpen(false)}
                     content={content}
-                    subject={getValues('subject') || "Email Preview"}
+                    subject={getValues('subject') || dict.compose.preview_title}
                     showDate={showDate}
                 />
 
@@ -734,6 +818,14 @@ export default function ComposeWindow({ initialRecipients = [], isModal = false,
                         setValue('recipients', Array.from(newSet).join(', '));
                     }}
                 />
+
+                {/* Template Manager Modal */}
+                {isTemplateManagerOpen && (
+                    <TemplateManagerModal
+                        onClose={() => setIsTemplateManagerOpen(false)}
+                        onChanged={fetchTemplates}
+                    />
+                )}
 
                 {/* AI Modal */}
                 {isAIModalOpen && (

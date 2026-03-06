@@ -1,15 +1,50 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { RefreshCw, Play, Pause, Trash2, AlertCircle, CheckCircle, Clock, Plus, X, Eye } from 'lucide-react';
+import { RefreshCw, Play, Pause, Trash2, AlertCircle, CheckCircle, Clock, Plus, X, Eye, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import ComposeWindow from '@/components/email/ComposeWindow';
 import { useLanguage } from '@/components/providers/LanguageProvider';
+import { useAuth } from '@/components/auth/AuthProvider';
+
+interface CampaignRecord {
+    id: string;
+    subject: string;
+    status: string;
+    scheduled_at: string | null;
+    created_at: string;
+    stats: {
+        total: number;
+        completed: number;
+        pending: number;
+        failed: number;
+        processing: number;
+    };
+    sender_name?: string;
+}
+interface QueueDetailRecord {
+    id: string;
+    recipient_email: string;
+    status: string;
+    last_error?: string;
+}
+
+interface GlobalStats {
+    stats: {
+        total: number;
+        completed: number;
+        pending: number;
+        failed: number;
+        processing: number;
+    };
+    recent: Record<string, unknown>[];
+}
 
 export default function QueueDashboard() {
     const { dict } = useLanguage();
-    const [stats, setStats] = useState<any>(null); // Global stats
-    const [campaigns, setCampaigns] = useState<any[]>([]); // Campaign List
+    const { user } = useAuth();
+    const [stats, setStats] = useState<GlobalStats | null>(null); // Global stats
+    const [campaigns, setCampaigns] = useState<CampaignRecord[]>([]); // Campaign List
     const [loading, setLoading] = useState(true);
 
     const [refreshing, setRefreshing] = useState(false);
@@ -19,7 +54,7 @@ export default function QueueDashboard() {
 
     const handleRefresh = async () => {
         setRefreshing(true);
-        await fetchData();
+        await fetchCampaigns();
         setTimeout(() => setRefreshing(false), 500); // Minimum 500ms spin for feedback
     };
 
@@ -27,15 +62,15 @@ export default function QueueDashboard() {
     const [confirmModal, setConfirmModal] = useState<{
         isOpen: boolean;
         type: 'play' | 'pause' | 'delete';
-        campaign: any | null;
+        campaign: CampaignRecord | null;
     }>({ isOpen: false, type: 'play', campaign: null });
 
     // Details Modal State
-    const [selectedCampaign, setSelectedCampaign] = useState<any>(null);
-    const [details, setDetails] = useState<any[]>([]);
+    const [selectedCampaign, setSelectedCampaign] = useState<CampaignRecord | null>(null);
+    const [details, setDetails] = useState<QueueDetailRecord[]>([]);
     const [loadingDetails, setLoadingDetails] = useState(false);
 
-    const fetchData = async () => {
+    const fetchCampaigns = async (query = '', pageToLoad = 1) => {
         try {
             // 1. Fetch Global Stats
             const resStats = await fetch('/api/queue/stats');
@@ -45,7 +80,7 @@ export default function QueueDashboard() {
             }
 
             // 2. Fetch Campaigns
-            const resCamp = await fetch('/api/queue/campaigns');
+            const resCamp = await fetch(`/api/queue/campaigns?query=${query}&page=${pageToLoad}`);
             const dataCamp = await resCamp.json();
 
             if (Array.isArray(dataCamp)) {
@@ -97,15 +132,16 @@ export default function QueueDashboard() {
                 });
                 toast.success(dict.queue?.notifications?.paused || 'Campaign paused');
             }
-            fetchData();
+            fetchCampaigns();
         } catch (error) {
+            console.error(error);
             toast.error(dict.queue?.notifications?.error || 'Action failed');
         } finally {
             setLoading(false);
         }
     };
 
-    const openDetails = async (campaign: any) => {
+    const openDetails = async (campaign: CampaignRecord) => {
         setSelectedCampaign(campaign);
         setLoadingDetails(true);
         try {
@@ -118,6 +154,7 @@ export default function QueueDashboard() {
                 setDetails([]);
             }
         } catch (e) {
+            console.error(e);
             toast.error("Failed to load details");
             setDetails([]);
         } finally {
@@ -126,8 +163,8 @@ export default function QueueDashboard() {
     };
 
     useEffect(() => {
-        fetchData();
-        const dataInterval = setInterval(fetchData, 10000); // Poll data every 10s for live updates
+        fetchCampaigns();
+        const dataInterval = setInterval(fetchCampaigns, 10000); // Poll data every 10s for live updates
 
         // Auto-Process Loop: Triggers if there are active campaigns with pending work
         const processInterval = setInterval(() => {
@@ -147,17 +184,21 @@ export default function QueueDashboard() {
     if (loading) return <div className="p-8 text-center">{dict.common.loading || "Loading..."}</div>;
 
     const getStatusLabel = (status: string) => {
-        // @ts-ignore
         const key = status as keyof typeof dict.queue.status;
         return dict.queue?.status?.[key] || status;
     };
 
     const getStatsLabel = (key: string) => {
-        // @ts-ignore
-        return dict.queue?.stats?.[key] || key;
+        return dict.queue?.stats?.[key as keyof typeof dict.queue.stats] || key;
     };
 
-
+    if (!user || user.user_metadata?.role !== 'admin') {
+        return (
+            <div className="flex h-[50vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
+            </div>
+        );
+    }
 
     return (
         <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6 sm:space-y-8 relative">
@@ -187,10 +228,10 @@ export default function QueueDashboard() {
 
             {/* Stats Grid */}
             <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-4">
-                <StatCard title={dict.queue?.stats?.pending} value={stats?.stats?.pending} icon={<Clock className="w-6 h-6 text-yellow-500" />} bg="bg-yellow-50 dark:bg-yellow-900/20" />
-                <StatCard title={dict.queue?.stats?.processing} value={stats?.stats?.processing} icon={<RefreshCw className="w-6 h-6 text-blue-500" />} bg="bg-blue-50 dark:bg-blue-900/20" />
-                <StatCard title={dict.queue?.stats?.completed} value={stats?.stats?.completed} icon={<CheckCircle className="w-6 h-6 text-green-500" />} bg="bg-green-50 dark:bg-green-900/20" />
-                <StatCard title={dict.queue?.stats?.failed} value={stats?.stats?.failed} icon={<AlertCircle className="w-6 h-6 text-red-500" />} bg="bg-red-50 dark:bg-red-900/20" />
+                <StatCard title={dict.queue?.stats?.pending} value={stats?.stats?.pending || 0} icon={<Clock className="w-6 h-6 text-yellow-500" />} bg="bg-yellow-50 dark:bg-yellow-900/20" />
+                <StatCard title={dict.queue?.stats?.processing} value={stats?.stats?.processing || 0} icon={<RefreshCw className="w-6 h-6 text-blue-500" />} bg="bg-blue-50 dark:bg-blue-900/20" />
+                <StatCard title={dict.queue?.stats?.completed} value={stats?.stats?.completed || 0} icon={<CheckCircle className="w-6 h-6 text-green-500" />} bg="bg-green-50 dark:bg-green-900/20" />
+                <StatCard title={dict.queue?.stats?.failed} value={stats?.stats?.failed || 0} icon={<AlertCircle className="w-6 h-6 text-red-500" />} bg="bg-red-50 dark:bg-red-900/20" />
             </div>
 
             {/* Campaign List */}
@@ -373,7 +414,7 @@ export default function QueueDashboard() {
             {isModalOpen && (
                 <ComposeWindow
                     isModal={true}
-                    onClose={() => { setIsModalOpen(false); fetchData(); }}
+                    onClose={() => { setIsModalOpen(false); fetchCampaigns(); }}
                     mode="queue"
                 />
             )}
@@ -381,7 +422,7 @@ export default function QueueDashboard() {
     );
 }
 
-function StatCard({ title, value, icon, bg }: any) {
+function StatCard({ title, value, icon, bg }: { title: string, value: string | number, icon: React.ReactNode, bg: string }) {
     return (
         <div className={`p-4 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm ${bg}`}>
             <div className="flex items-center justify-between mb-2">

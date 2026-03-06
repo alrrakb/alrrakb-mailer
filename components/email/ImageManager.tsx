@@ -16,7 +16,7 @@ interface StorageFile {
     name: string;
     id: string; // usually name
     url: string;
-    metadata?: any;
+    metadata?: Record<string, unknown>;
     created_at?: string;
 }
 
@@ -206,6 +206,7 @@ export default function ImageManager({ isOpen, onClose, onSelect }: ImageManager
                                             className="group relative aspect-square bg-white dark:bg-gray-800 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-500 cursor-pointer shadow-sm hover:shadow-md transition"
                                             onClick={() => { onSelect(img.url); onClose(); }}
                                         >
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
                                             <img
                                                 src={img.url}
                                                 alt={img.name}

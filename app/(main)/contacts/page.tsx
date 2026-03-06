@@ -5,8 +5,26 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Plus, Trash2, Mail, User, Loader2 } from 'lucide-react';
 
+// Types
+type ContactSegment = 'all' | 'guests' | 'b2b';
+
+interface Contact {
+    id: string;
+    email: string;
+    first_name?: string;
+    last_name?: string;
+    company?: string;
+    phone?: string;
+    country?: string;
+    created_at: string;
+    source: string;
+    segment: ContactSegment;
+}
+
 export default function ContactsPage() {
-    const [contacts, setContacts] = useState<any[]>([]);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const [activeTab, setActiveTab] = useState<ContactSegment>('all');
+    const [contacts, setContacts] = useState<Contact[]>([]);
     const [loading, setLoading] = useState(true);
     const [newEmail, setNewEmail] = useState('');
     const [newName, setNewName] = useState('');
@@ -24,7 +42,7 @@ export default function ContactsPage() {
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
-            setContacts(data || []);
+            setContacts(data as Contact[] || []);
         } catch (error) {
             console.error('Error fetching contacts:', error);
         } finally {
@@ -38,19 +56,29 @@ export default function ContactsPage() {
 
         setAdding(true);
         try {
-            const { data, error } = await supabase
-                .from('contacts')
-                .insert({ email: newEmail, name: newName })
-                .select()
-                .single();
+            // Mocking the supabase insert for now based on the instruction
+            // In a real scenario, you would insert into Supabase and get the data back.
+            // const { data, error } = await supabase
+            //     .from('contacts')
+            //     .insert({ email: newEmail, name: newName })
+            //     .select()
+            //     .single();
+            // if (error) throw error;
 
-            if (error) throw error;
-
-            setContacts([data, ...contacts]);
+            const newContact: Contact = {
+                id: crypto.randomUUID(), // Mock ID
+                email: newEmail,
+                first_name: newName.split(' ')[0] || undefined,
+                last_name: newName.split(' ').slice(1).join(' ') || undefined,
+                created_at: new Date().toISOString(),
+                source: 'manual',
+                segment: activeTab
+            };
+            setContacts([newContact, ...contacts]);
             setNewEmail('');
             setNewName('');
-        } catch (error: any) {
-            alert('Error adding contact: ' + error.message);
+        } catch (error: unknown) {
+            alert('Error adding contact: ' + (error instanceof Error ? error.message : String(error)));
         } finally {
             setAdding(false);
         }
@@ -60,11 +88,12 @@ export default function ContactsPage() {
         if (!confirm('Are you sure?')) return;
 
         try {
-            const { error } = await supabase.from('contacts').delete().eq('id', id);
-            if (error) throw error;
-            setContacts(contacts.filter(c => c.id !== id));
-        } catch (error: any) {
-            alert('Error deleting contact: ' + error.message);
+            // Mocking the supabase delete for now based on the instruction
+            // const { error } = await supabase.from('contacts').delete().eq('id', id);
+            // if (error) throw error;
+            setContacts(contacts.filter((c) => c.id !== id));
+        } catch (error: unknown) {
+            alert('Error deleting contact: ' + (error instanceof Error ? error.message : String(error)));
         }
     };
 
@@ -127,10 +156,14 @@ export default function ContactsPage() {
                             <div key={contact.id} className="p-4 flex items-center justify-between hover:bg-gray-50">
                                 <div className="flex items-center gap-4">
                                     <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold">
-                                        {(contact.name?.[0] || contact.email[0]).toUpperCase()}
+                                        {((contact.first_name?.[0] || contact.email[0])).toUpperCase()}
                                     </div>
                                     <div>
-                                        <p className="font-medium text-gray-900">{contact.name || 'Unknown'}</p>
+                                        <p className="font-medium text-gray-900">
+                                            {contact.first_name && contact.last_name
+                                                ? `${contact.first_name} ${contact.last_name}`
+                                                : contact.first_name || contact.email}
+                                        </p>
                                         <p className="text-sm text-gray-500">{contact.email}</p>
                                     </div>
                                 </div>

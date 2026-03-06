@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useLanguage } from '@/components/providers/LanguageProvider';
 import { Mail, Plus, Trash2, CheckCircle, RefreshCw, X, Eye, Inbox as InboxIcon, Globe, Loader2 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 
 type InboxMessage = {
     id: string;
@@ -16,8 +15,7 @@ type InboxMessage = {
 };
 
 export default function InboxPage() {
-    const { dict, dir } = useLanguage();
-    const router = useRouter();
+    const { dict } = useLanguage();
     const [messages, setMessages] = useState<InboxMessage[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSimulating, setIsSimulating] = useState(false);
@@ -26,13 +24,11 @@ export default function InboxPage() {
 
     // Translation State
     const [isTranslated, setIsTranslated] = useState(false);
-    const [isTranslating, setIsTranslating] = useState(false);
     const [translatedContent, setTranslatedContent] = useState<string>("");
 
     // Reset translation when message changes
     useEffect(() => {
         setIsTranslated(false);
-        setIsTranslating(false);
         setTranslatedContent("");
     }, [selectedMessage]);
 
@@ -51,6 +47,7 @@ export default function InboxPage() {
         }, 10000);
 
         return () => clearInterval(interval);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const fetchMessages = async (sync: boolean = false, isBackground: boolean = false) => {
@@ -79,9 +76,9 @@ export default function InboxPage() {
             if (Array.isArray(data)) {
                 setMessages(data);
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Failed to fetch inbox', error);
-            if (!isBackground) showToast('error', error.message || 'Failed to update');
+            if (!isBackground) showToast('error', error instanceof Error ? error.message : 'Failed to update');
         } finally {
             if (!isBackground) setIsLoading(false);
         }
@@ -169,23 +166,7 @@ export default function InboxPage() {
         setDeleteConfirmation(id);
     };
 
-    const confirmDelete = async () => {
-        if (!deleteConfirmation) return;
-        const id = deleteConfirmation;
 
-        try {
-            const res = await fetch(`/api/inbox?id=${id}`, { method: 'DELETE' });
-            if (!res.ok) throw new Error('Failed');
-
-            setMessages(prev => prev.filter(m => m.id !== id));
-            showToast('success', dict.inbox.delete_success);
-
-            if (selectedMessage?.id === id) setSelectedMessage(null);
-            setDeleteConfirmation(null);
-        } catch (error) {
-            console.error(error);
-        }
-    };
 
     const cancelDelete = () => {
         setDeleteConfirmation(null);
@@ -237,6 +218,77 @@ export default function InboxPage() {
         }
     };
 
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+    // Reset selection when messages change/refresh
+    useEffect(() => {
+        setSelectedIds(new Set());
+    }, [messages]);
+
+    const toggleSelectAll = () => {
+        if (selectedIds.size === messages.length) {
+            setSelectedIds(new Set());
+        } else {
+            setSelectedIds(new Set(messages.map(m => m.id)));
+        }
+    };
+
+    const toggleSelect = (id: string) => {
+        const newSet = new Set(selectedIds);
+        if (newSet.has(id)) {
+            newSet.delete(id);
+        } else {
+            newSet.add(id);
+        }
+        setSelectedIds(newSet);
+    };
+
+    const handleBulkDelete = () => {
+        setDeleteConfirmation('BULK');
+    };
+
+    const confirmDelete = async () => {
+        if (!deleteConfirmation) return;
+
+        if (deleteConfirmation === 'BULK') {
+            try {
+                const ids = Array.from(selectedIds);
+                const res = await fetch('/api/inbox', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ids })
+                });
+
+                if (!res.ok) throw new Error('Failed to delete selected');
+
+                setMessages(prev => prev.filter(m => !selectedIds.has(m.id)));
+                setSelectedIds(new Set());
+                showToast('success', dict.inbox.delete_success);
+            } catch (error) {
+                console.error(error);
+                showToast('error', 'Failed to delete selected messages');
+            } finally {
+                setDeleteConfirmation(null);
+            }
+        } else {
+            // Single delete
+            const id = deleteConfirmation;
+            try {
+                const res = await fetch(`/api/inbox?id=${id}`, { method: 'DELETE' });
+                if (!res.ok) throw new Error('Failed');
+
+                setMessages(prev => prev.filter(m => m.id !== id));
+                showToast('success', dict.inbox.delete_success);
+
+                if (selectedMessage?.id === id) setSelectedMessage(null);
+            } catch (error) {
+                console.error(error);
+            } finally {
+                setDeleteConfirmation(null);
+            }
+        }
+    };
+
     if (isLoading) return <div className="p-8 text-center text-gray-500">{dict.inbox.loading}</div>;
 
     return (
@@ -259,7 +311,25 @@ export default function InboxPage() {
                     </div>
                     {dict.inbox.title}
                 </h1>
+
                 <div className="flex gap-3">
+                    <button
+                        onClick={handleSimulate}
+                        disabled={isSimulating}
+                        className="hidden sm:flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-lg text-sm font-medium transition-colors"
+                    >
+                        {isSimulating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                        Simulate Email
+                    </button>
+                    {selectedIds.size > 0 && (
+                        <button
+                            onClick={handleBulkDelete}
+                            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2"
+                        >
+                            <Trash2 className="w-4 h-4" />
+                            {dict.inbox.delete_selected} ({selectedIds.size})
+                        </button>
+                    )}
                     <button
                         onClick={() => fetchMessages(true, false)}
                         className="p-2 text-gray-500 hover:text-[#39285e] dark:text-gray-400 dark:hover:text-[#79bbe0] transition-colors"
@@ -267,14 +337,6 @@ export default function InboxPage() {
                     >
                         <RefreshCw className="w-5 h-5" />
                     </button>
-                    {/* <button
-                        onClick={handleSimulate}
-                        disabled={isSimulating}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
-                    >
-                        {isSimulating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                        {dict.inbox.simulate_btn}
-                    </button> */}
                 </div>
             </div>
 
@@ -291,6 +353,14 @@ export default function InboxPage() {
                             <table className="w-full text-start border-separate border-spacing-0">
                                 <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400 text-xs uppercase font-medium sticky top-0 z-10 backdrop-blur-sm">
                                     <tr>
+                                        <th className="px-6 py-4 text-start w-[50px]">
+                                            <input
+                                                type="checkbox"
+                                                className="rounded border-gray-300 text-[#39285e] focus:ring-[#39285e]"
+                                                checked={messages.length > 0 && selectedIds.size === messages.length}
+                                                onChange={toggleSelectAll}
+                                            />
+                                        </th>
                                         <th className="px-6 py-4 text-start w-1/4">{dict.inbox.sender}</th>
                                         <th className="px-6 py-4 text-start w-1/3">{dict.inbox.subject}</th>
                                         <th className="px-6 py-4 text-start">{dict.inbox.date}</th>
@@ -301,9 +371,17 @@ export default function InboxPage() {
                                     {messages.map(msg => (
                                         <tr
                                             key={msg.id}
-                                            className={`hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors cursor-pointer ${!msg.is_read ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''}`}
+                                            className={`hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors cursor-pointer ${selectedIds.has(msg.id) ? 'bg-blue-50 dark:bg-blue-900/20' : (!msg.is_read ? 'bg-blue-50/30 dark:bg-blue-900/10' : '')}`}
                                             onClick={() => openMessage(msg)}
                                         >
+                                            <td className="px-6 py-4" onClick={e => e.stopPropagation()}>
+                                                <input
+                                                    type="checkbox"
+                                                    className="rounded border-gray-300 text-[#39285e] focus:ring-[#39285e]"
+                                                    checked={selectedIds.has(msg.id)}
+                                                    onChange={() => toggleSelect(msg.id)}
+                                                />
+                                            </td>
                                             <td className="px-6 py-4 max-w-xs truncate">
                                                 <div className={`font-medium ${!msg.is_read ? 'text-[#39285e] dark:text-[#79bbe0] font-bold' : 'text-gray-900 dark:text-white'}`}>
                                                     {msg.sender.split('<')[0]}
@@ -355,46 +433,58 @@ export default function InboxPage() {
                             {messages.map(msg => (
                                 <div
                                     key={msg.id}
-                                    className={`p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors cursor-pointer active:scale-[0.99] ${!msg.is_read ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''}`}
+                                    className={`p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors cursor-pointer active:scale-[0.99] ${selectedIds.has(msg.id) ? 'bg-blue-50 dark:bg-blue-900/20' : (!msg.is_read ? 'bg-blue-50/30 dark:bg-blue-900/10' : '')}`}
                                     onClick={() => openMessage(msg)}
                                 >
-                                    <div className="flex justify-between items-start mb-1">
+                                    <div className="flex items-start gap-3 mb-1">
+                                        <div onClick={e => e.stopPropagation()}>
+                                            <input
+                                                type="checkbox"
+                                                className="mt-1 rounded border-gray-300 text-[#39285e] focus:ring-[#39285e]"
+                                                checked={selectedIds.has(msg.id)}
+                                                onChange={() => toggleSelect(msg.id)}
+                                            />
+                                        </div>
                                         <div className="flex-1 min-w-0">
-                                            <div className={`font-medium truncate ${!msg.is_read ? 'text-[#39285e] dark:text-[#79bbe0] font-bold' : 'text-gray-900 dark:text-white'}`}>
-                                                {msg.sender.split('<')[0]}
-                                            </div>
-                                            <div className="text-xs text-gray-400 truncate">{msg.sender}</div>
-                                        </div>
-                                        <span className="text-xs text-gray-400 whitespace-nowrap ml-2">
-                                            {new Date(msg.received_at).toLocaleDateString()}
-                                        </span>
-                                    </div>
-
-                                    <div className={`text-sm mb-3 ${!msg.is_read ? 'font-bold text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'}`}>
-                                        {msg.subject}
-                                    </div>
-
-                                    <div className="flex justify-between items-center">
-                                        <div className="flex gap-1 overflow-auto no-scrollbar mask-gradient">
-                                            {msg.tags && msg.tags.map(t => (
-                                                <span key={t} className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded text-[10px] uppercase tracking-wider whitespace-nowrap">
-                                                    {t}
+                                            <div className="flex justify-between items-start">
+                                                <div className="flex-1 min-w-0">
+                                                    <div className={`font-medium truncate ${!msg.is_read ? 'text-[#39285e] dark:text-[#79bbe0] font-bold' : 'text-gray-900 dark:text-white'}`}>
+                                                        {msg.sender.split('<')[0]}
+                                                    </div>
+                                                    <div className="text-xs text-gray-400 truncate">{msg.sender}</div>
+                                                </div>
+                                                <span className="text-xs text-gray-400 whitespace-nowrap ml-2">
+                                                    {new Date(msg.received_at).toLocaleDateString()}
                                                 </span>
-                                            ))}
-                                        </div>
-                                        <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                                            <button
-                                                onClick={() => openMessage(msg)}
-                                                className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-                                            >
-                                                <Eye className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                                onClick={() => handleDelete(msg.id)}
-                                                className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
+                                            </div>
+
+                                            <div className={`text-sm my-2 ${!msg.is_read ? 'font-bold text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'}`}>
+                                                {msg.subject}
+                                            </div>
+
+                                            <div className="flex justify-between items-center">
+                                                <div className="flex gap-1 overflow-auto no-scrollbar mask-gradient">
+                                                    {msg.tags && msg.tags.map(t => (
+                                                        <span key={t} className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded text-[10px] uppercase tracking-wider whitespace-nowrap">
+                                                            {t}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                                <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                                                    <button
+                                                        onClick={() => openMessage(msg)}
+                                                        className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                                                    >
+                                                        <Eye className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDelete(msg.id)}
+                                                        className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -405,113 +495,117 @@ export default function InboxPage() {
             </div>
 
             {/* Message Detail Modal */}
-            {selectedMessage && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in" onClick={() => setSelectedMessage(null)}>
-                    <div className="bg-white dark:bg-gray-900 w-full max-w-3xl max-h-[90vh] rounded-xl flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-                        <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-start bg-gray-50/50 dark:bg-gray-800/50">
-                            <div>
-                                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{selectedMessage.subject}</h2>
-                                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                                    <span className="font-medium bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded text-xs">{dict.inbox.sender}:</span>
-                                    <span>{selectedMessage.sender}</span>
+            {
+                selectedMessage && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in" onClick={() => setSelectedMessage(null)}>
+                        <div className="bg-white dark:bg-gray-900 w-full max-w-3xl max-h-[90vh] rounded-xl flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+                            <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-start bg-gray-50/50 dark:bg-gray-800/50">
+                                <div>
+                                    <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{selectedMessage.subject}</h2>
+                                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                                        <span className="font-medium bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded text-xs">{dict.inbox.sender}:</span>
+                                        <span>{selectedMessage.sender}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-sm text-gray-500 mt-1">
+                                        <span className="font-medium bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded text-xs">{dict.inbox.date}:</span>
+                                        <span>{new Date(selectedMessage.received_at).toLocaleString()}</span>
+                                    </div>
                                 </div>
-                                <div className="flex items-center gap-2 text-sm text-gray-500 mt-1">
-                                    <span className="font-medium bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded text-xs">{dict.inbox.date}:</span>
-                                    <span>{new Date(selectedMessage.received_at).toLocaleString()}</span>
+
+                                {/* Action Buttons: Translate & Close */}
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={handleTranslate}
+                                        className={`p-2 rounded-full transition-all flex items-center justify-center ${isTranslated
+                                            ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                            : 'bg-white hover:bg-gray-100 text-gray-500 hover:text-[#39285e] border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:text-white'
+                                            }`}
+                                        title={isTranslated ? dict.inbox.show_original : dict.inbox.translate_btn}
+                                    >
+                                        <Globe className="w-5 h-5" />
+                                    </button>
+                                    <button onClick={() => setSelectedMessage(null)} className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors text-gray-500 hover:text-red-500">
+                                        <X className="w-6 h-6" />
+                                    </button>
                                 </div>
                             </div>
 
-                            {/* Action Buttons: Translate & Close */}
-                            <div className="flex items-center gap-2">
+                            <div className="flex-1 overflow-auto bg-white dark:bg-gray-950 p-6 relative">
+                                {/* Translation Banner */}
+                                {isTranslated && (
+                                    <div className="sticky top-0 z-10 bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 px-4 py-2 mb-4 text-sm font-medium rounded-lg flex items-center gap-2 border border-blue-100 dark:border-blue-900/50">
+                                        <Globe className="w-4 h-4" />
+                                        {dict.inbox.translated_label}
+                                    </div>
+                                )}
+
+                                {/* Safe HTML render or IFrame */}
+                                <div className="prose dark:prose-invert max-w-none w-full h-full">
+                                    <iframe
+                                        srcDoc={getStyledContent(isTranslated ? translatedContent : selectedMessage.content)}
+                                        className="w-full min-h-[500px] border-0"
+                                        sandbox="allow-same-origin"
+                                        title="Email Content"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="p-4 border-t border-gray-100 dark:border-gray-800 flex justify-end gap-3 bg-gray-50 dark:bg-gray-900">
                                 <button
-                                    onClick={handleTranslate}
-                                    className={`p-2 rounded-full transition-all flex items-center justify-center ${isTranslated
-                                        ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                                        : 'bg-white hover:bg-gray-100 text-gray-500 hover:text-[#39285e] border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:text-white'
-                                        }`}
-                                    title={isTranslated ? dict.inbox.show_original : dict.inbox.translate_btn}
+                                    onClick={() => handleDelete(selectedMessage.id)}
+                                    className="px-4 py-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg font-medium transition-colors flex items-center gap-2"
                                 >
-                                    <Globe className="w-5 h-5" />
+                                    <Trash2 className="w-4 h-4" />
+                                    {dict.common.delete}
                                 </button>
-                                <button onClick={() => setSelectedMessage(null)} className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors text-gray-500 hover:text-red-500">
-                                    <X className="w-6 h-6" />
+                                <button
+                                    onClick={() => setSelectedMessage(null)}
+                                    className="px-6 py-2 bg-gray-900 dark:bg-gray-700 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors"
+                                >
+                                    {dict.inbox.close}
                                 </button>
                             </div>
-                        </div>
-
-                        <div className="flex-1 overflow-auto bg-white dark:bg-gray-950 p-6 relative">
-                            {/* Translation Banner */}
-                            {isTranslated && (
-                                <div className="sticky top-0 z-10 bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 px-4 py-2 mb-4 text-sm font-medium rounded-lg flex items-center gap-2 border border-blue-100 dark:border-blue-900/50">
-                                    <Globe className="w-4 h-4" />
-                                    {dict.inbox.translated_label}
-                                </div>
-                            )}
-
-                            {/* Safe HTML render or IFrame */}
-                            <div className="prose dark:prose-invert max-w-none w-full h-full">
-                                <iframe
-                                    srcDoc={getStyledContent(isTranslated ? translatedContent : selectedMessage.content)}
-                                    className="w-full min-h-[500px] border-0"
-                                    sandbox="allow-same-origin"
-                                    title="Email Content"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="p-4 border-t border-gray-100 dark:border-gray-800 flex justify-end gap-3 bg-gray-50 dark:bg-gray-900">
-                            <button
-                                onClick={() => handleDelete(selectedMessage.id)}
-                                className="px-4 py-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg font-medium transition-colors flex items-center gap-2"
-                            >
-                                <Trash2 className="w-4 h-4" />
-                                {dict.common.delete}
-                            </button>
-                            <button
-                                onClick={() => setSelectedMessage(null)}
-                                className="px-6 py-2 bg-gray-900 dark:bg-gray-700 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors"
-                            >
-                                {dict.inbox.close}
-                            </button>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Custom Delete Confirmation Modal */}
-            {deleteConfirmation && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in" onClick={cancelDelete}>
-                    <div className="bg-white dark:bg-gray-900 w-full max-w-md rounded-xl p-6 shadow-2xl animate-in zoom-in-95 duration-200 border border-gray-100 dark:border-gray-800" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center gap-4 mb-6">
-                            <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center flex-shrink-0">
-                                <Trash2 className="w-6 h-6 text-red-600" />
+            {
+                deleteConfirmation && (
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in" onClick={cancelDelete}>
+                        <div className="bg-white dark:bg-gray-900 w-full max-w-md rounded-xl p-6 shadow-2xl animate-in zoom-in-95 duration-200 border border-gray-100 dark:border-gray-800" onClick={e => e.stopPropagation()}>
+                            <div className="flex items-center gap-4 mb-6">
+                                <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center flex-shrink-0">
+                                    <Trash2 className="w-6 h-6 text-red-600" />
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                                        {deleteConfirmation === 'BULK' ? dict.inbox.delete_modal.title + ` (${selectedIds.size})` : dict.inbox.delete_modal.title}
+                                    </h3>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                        {deleteConfirmation === 'BULK' ? dict.inbox.delete_modal.desc : dict.inbox.delete_modal.desc}
+                                    </p>
+                                </div>
                             </div>
-                            <div>
-                                <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                                    {dict.inbox.delete_modal.title}
-                                </h3>
-                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                                    {dict.inbox.delete_modal.desc}
-                                </p>
+                            <div className="flex justify-end gap-3">
+                                <button
+                                    onClick={cancelDelete}
+                                    className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg font-medium transition-colors"
+                                >
+                                    {dict.inbox.delete_modal.cancel}
+                                </button>
+                                <button
+                                    onClick={confirmDelete}
+                                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
+                                >
+                                    {dict.inbox.delete_modal.confirm}
+                                </button>
                             </div>
-                        </div>
-                        <div className="flex justify-end gap-3">
-                            <button
-                                onClick={cancelDelete}
-                                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg font-medium transition-colors"
-                            >
-                                {dict.inbox.delete_modal.cancel}
-                            </button>
-                            <button
-                                onClick={confirmDelete}
-                                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
-                            >
-                                {dict.inbox.delete_modal.confirm}
-                            </button>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 }

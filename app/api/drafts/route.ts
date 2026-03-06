@@ -25,7 +25,7 @@ export async function DELETE(req: Request) {
         if (error) throw error;
 
         return NextResponse.json({ message: 'Draft deleted successfully' });
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
     }
 }

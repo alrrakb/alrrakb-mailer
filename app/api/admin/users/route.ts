@@ -15,7 +15,7 @@ function getSupabaseAdmin() {
     );
 }
 
-export async function GET(req: Request) {
+export async function GET() {
     try {
         const supabaseAdmin = getSupabaseAdmin();
         const { data: { users }, error } = await supabaseAdmin.auth.admin.listUsers();
@@ -29,8 +29,8 @@ export async function GET(req: Request) {
         if (profilesError) console.error('Error fetching profiles:', profilesError);
 
         // Merge data
-        const enrichedUsers = users.map((user: any) => {
-            const profile = profiles?.find((p: any) => p.id === user.id);
+        const enrichedUsers = users.map((user) => {
+            const profile = profiles?.find((p) => p.id === user.id);
             return {
                 ...user,
                 profile: profile || {}
@@ -38,8 +38,8 @@ export async function GET(req: Request) {
         });
 
         return NextResponse.json(enrichedUsers);
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
     }
 }
 
@@ -61,8 +61,8 @@ export async function POST(req: Request) {
         if (error) throw error;
 
         return NextResponse.json(data.user);
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
     }
 }
 
@@ -75,7 +75,7 @@ export async function PATCH(req: Request) {
             return NextResponse.json({ error: 'ID and action are required' }, { status: 400 });
         }
 
-        let updateAttributes: any = {};
+        let updateAttributes: Partial<{ ban_duration: string; password?: string }> = {};
 
         if (action === 'suspend') {
             updateAttributes = { ban_duration: '876000h' }; // ~100 years
@@ -97,9 +97,9 @@ export async function PATCH(req: Request) {
         }
 
         return NextResponse.json({ message: `Action ${action} completed successfully`, user: data.user });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('API Error:', error);
-        return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json({ error: error instanceof Error ? error.message : 'Internal Server Error' }, { status: 500 });
     }
 }
 
@@ -118,7 +118,7 @@ export async function DELETE(req: Request) {
         if (error) throw error;
 
         return NextResponse.json({ message: 'User deleted successfully' });
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
     }
 }

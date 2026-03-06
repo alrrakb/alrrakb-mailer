@@ -16,7 +16,7 @@ export class ImapHelper {
                 port: 993,
                 tls: true,
                 tlsOptions: { rejectUnauthorized: false },
-                authTimeout: 10000,
+                authTimeout: 30000,
             }
         };
 
@@ -36,9 +36,11 @@ export class ImapHelper {
             const messages = await connection.search(searchCriteria, fetchOptions);
             console.log(`Found ${messages.length} messages.`);
 
-            const parsedMessages = await Promise.all(messages.map(async (msg: any) => {
-                const all = msg.parts.find((part: any) => part.which === '');
-                const id = msg.attributes.uid;
+            const parsedMessages = await Promise.all(messages.map(async (msg: Record<string, unknown>) => {
+                const parts = msg.parts as Record<string, unknown>[];
+                const all = parts.find((part) => part.which === '');
+                const attributes = msg.attributes as { uid: string };
+                const id = attributes.uid;
                 const body = all ? all.body : '';
 
                 const parsed = await simpleParser(body);

@@ -1,4 +1,5 @@
 
+/* eslint-disable @typescript-eslint/no-require-imports */
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 require('dotenv').config({ path: '.env.local' });
 
@@ -36,7 +37,7 @@ async function listModels() {
             try {
                 const model = genAI.getGenerativeModel({ model: modelName });
                 const result = await model.generateContent("Hello via test script");
-                const response = await result.response;
+                await result.response;
                 console.log(`SUCCESS: ${modelName} is working!`);
                 return; // Found a working one
             } catch (e) {

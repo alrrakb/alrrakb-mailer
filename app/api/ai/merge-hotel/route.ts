@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
         // 2. Smart Email Handling
         // "Keep existing main emails. If new one is different, add to extra."
 
-        let extraEmails = Array.isArray(existingHotel.emails_extra) ? [...existingHotel.emails_extra] : [];
+        const extraEmails = Array.isArray(existingHotel.emails_extra) ? [...existingHotel.emails_extra] : [];
 
         // Helper to safely add to extra
         // Helper to safely add to extra
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
             if (item.email === mergedHotel.email_info || item.email === mergedHotel.email_reservation) return;
 
             // Check if already in extra
-            const existingIndex = extraEmails.findIndex((e: any) => e.email === item.email);
+            const existingIndex = extraEmails.findIndex((e: { email: string; }) => e.email === item.email);
 
             if (existingIndex > -1) {
                 // Exists! Update labels if provided (and if existing is generic 'Extra')
@@ -81,9 +81,8 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        // 3. Merge Extra Emails from New Import
         if (Array.isArray(newHotel.emails_extra)) {
-            newHotel.emails_extra.forEach((item: any) => {
+            newHotel.emails_extra.forEach((item: { email: string; label?: string; label_ar?: string; label_en?: string }) => {
                 addToExtra(item);
             });
         }
@@ -92,8 +91,8 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({ mergedHotel });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Merge Logic Error:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
     }
 }

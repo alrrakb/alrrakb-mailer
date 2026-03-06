@@ -1,4 +1,5 @@
 
+/* eslint-disable @typescript-eslint/no-require-imports */
 const { createClient } = require('@supabase/supabase-js');
 const dotenv = require('dotenv');
 const path = require('path');
@@ -40,7 +41,7 @@ async function createOrUpdateAdmin() {
 
     if (existingUser) {
         console.log('User exists. Updating password...');
-        const { data, error } = await supabase.auth.admin.updateUserById(
+        const { error } = await supabase.auth.admin.updateUserById(
             existingUser.id,
             { password: adminPassword }
         );
@@ -51,7 +52,7 @@ async function createOrUpdateAdmin() {
         }
     } else {
         console.log('User does not exist. Creating...');
-        const { data, error } = await supabase.auth.admin.createUser({
+        const { error } = await supabase.auth.admin.createUser({
             email: adminEmail,
             password: adminPassword,
             email_confirm: true

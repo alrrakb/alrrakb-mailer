@@ -50,8 +50,8 @@ export default function AddAccountModal({ isOpen, onClose, onSuccess }: AddAccou
 
             onSuccess();
             onClose();
-        } catch (err: any) {
-            setError(err.message || dict.login?.error_generic || 'Failed to sign in');
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : dict.login?.error_generic || 'Failed to sign in');
         } finally {
             setIsLoading(false);
         }

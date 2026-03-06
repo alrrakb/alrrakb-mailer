@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase-server';
 import { NextResponse } from 'next/server';
 
-export async function GET(req: Request) {
+export async function GET() {
     const supabase = await createClient();
 
     try {
@@ -34,7 +34,7 @@ export async function GET(req: Request) {
 
         // 3. Merge Data
         const merged = campaigns.map(c => {
-            const stat = stats ? stats.find((s: any) => s.campaign_id === c.id) : null;
+            const stat = stats ? stats.find((s: { campaign_id: string; total: number; pending: number; processing: number; completed: number; failed: number }) => s.campaign_id === c.id) : null;
             // Find if this campaign has a future schedule
             const schedule = schedules?.find(s => s.campaign_id === c.id);
 
@@ -53,7 +53,7 @@ export async function GET(req: Request) {
 
         return NextResponse.json(merged);
 
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
     }
 }

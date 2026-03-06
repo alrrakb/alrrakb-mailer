@@ -5,7 +5,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, PenSquare, FileText, History, Settings, Mail, ChevronLeft, ChevronRight, LogOut, ShieldAlert, Building2 } from 'lucide-react';
+import { LayoutDashboard, PenSquare, History, Settings, Mail, ChevronLeft, ChevronRight, LogOut, ShieldAlert, Building2 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useLanguage } from '@/components/providers/LanguageProvider';
@@ -13,7 +13,7 @@ import { useLanguage } from '@/components/providers/LanguageProvider';
 type NavItem = {
   key: string;
   href: string;
-  icon: any;
+  icon: React.ElementType;
 }
 
 const navigation: NavItem[] = [
@@ -88,7 +88,7 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: () =>
         <div className="flex-1 flex flex-col gap-1 p-4">
           {navigation.map((item) => {
             const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
-            // @ts-ignore
+            // @ts-expect-error Dictionary type is complex
             const label = dict.sidebar[item.key] || item.key;
 
             return (

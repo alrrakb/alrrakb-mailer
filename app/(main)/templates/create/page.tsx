@@ -35,8 +35,8 @@ export default function CreateTemplatePage() {
 
             router.push('/templates');
             router.refresh();
-        } catch (error: any) {
-            alert('Error saving template: ' + error.message);
+        } catch (error: unknown) {
+            alert('Error saving template: ' + (error instanceof Error ? error.message : String(error)));
         } finally {
             setIsLoading(false);
         }

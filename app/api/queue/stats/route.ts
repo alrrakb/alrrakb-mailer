@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase-server';
 import { NextResponse } from 'next/server';
 
-export async function GET(req: Request) {
+export async function GET() {
     const supabase = await createClient();
 
     try {
@@ -31,7 +31,7 @@ export async function GET(req: Request) {
             recent: recent || []
         });
 
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
     }
 }

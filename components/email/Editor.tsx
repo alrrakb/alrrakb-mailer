@@ -1,6 +1,6 @@
 "use client";
 
-import { useEditor, EditorContent } from '@tiptap/react';
+import { useEditor, EditorContent, Editor as TiptapEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
@@ -9,14 +9,16 @@ import Highlight from '@tiptap/extension-highlight';
 import { Color } from '@tiptap/extension-color';
 import { TextStyle } from '@tiptap/extension-text-style';
 import Placeholder from '@tiptap/extension-placeholder';
-import { Bold, Italic, List, ListOrdered, AlignLeft, AlignCenter, AlignRight, Link as LinkIconLucide, Image as ImageIcon, ArrowRightLeft, Highlighter, Palette, Wand2, Type } from 'lucide-react';
+import { Bold, Italic, List, ListOrdered, AlignLeft, AlignCenter, AlignRight, Link as LinkIconLucide, Image as ImageIcon, ArrowRightLeft, Highlighter, Palette, Wand2, Type, Code } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useEffect, useState } from 'react';
 import ImageManager from './ImageManager';
 import { ReactNodeViewRenderer } from '@tiptap/react';
 import ResizableImage from './ResizableImage';
 
-const Toolbar = ({ editor, onImageClick, onRefineClick }: { editor: any, onImageClick: () => void, onRefineClick: () => void }) => {
+const Toolbar = ({ editor, onImageClick, onRefineClick, isHtmlMode, onToggleHtmlMode }: { editor: TiptapEditor | null, onImageClick: () => void, onRefineClick: () => void, isHtmlMode: boolean, onToggleHtmlMode: () => void }) => {
+    const { dict } = useLanguage();
+
     if (!editor) {
         return null;
     }
@@ -39,8 +41,7 @@ const Toolbar = ({ editor, onImageClick, onRefineClick }: { editor: any, onImage
 
     // ... (rest of helper functions like updateBlockAttributes)
 
-    const updateBlockAttributes = (attributes: Record<string, any>) => {
-        const { selection } = editor.state;
+    const updateBlockAttributes = (attributes: Record<string, unknown>) => {
         // Check if we are in a list
         if (editor.isActive('bulletList') || editor.isActive('orderedList')) {
             editor.chain().focus()
@@ -69,7 +70,7 @@ const Toolbar = ({ editor, onImageClick, onRefineClick }: { editor: any, onImage
     const toggleDirection = () => {
         const { from, to } = editor.state.selection;
         let hasRTL = false;
-        editor.state.doc.nodesBetween(from, to, (node: any) => {
+        editor.state.doc.nodesBetween(from, to, (node: { attrs?: { dir?: string } }) => {
             if (node.attrs && node.attrs.dir === 'rtl') {
                 hasRTL = true;
             }
@@ -85,17 +86,32 @@ const Toolbar = ({ editor, onImageClick, onRefineClick }: { editor: any, onImage
     );
 
     return (
-        <div className="p-2 flex gap-1 flex-wrap rounded-t-lg">
+        <div className="p-2 flex gap-1 flex-wrap rounded-t-lg items-center">
+            <button
+                type="button"
+                onClick={onToggleHtmlMode}
+                className={clsx(
+                    'p-1.5 px-3 rounded-lg transition-colors duration-200 font-semibold text-xs flex items-center gap-1.5 mr-1 border shadow-sm',
+                    isHtmlMode
+                        ? 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/40 dark:text-blue-400 dark:border-blue-800/50'
+                        : 'text-gray-600 hover:bg-gray-100 border-gray-200 dark:text-gray-400 dark:hover:bg-gray-800 dark:border-gray-700/50'
+                )}
+                title={isHtmlMode ? dict.editor.visual_view : dict.editor.source_view}
+            >
+                <Code className="w-4 h-4" />
+                HTML
+            </button>
+
             <button
                 type="button"
                 onClick={onRefineClick}
-                className="p-2 rounded transition-colors duration-200 text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-900/20 bg-indigo-50/50 dark:bg-indigo-900/10 mr-2"
-                title="AI Magic Polish"
+                className="p-2 rounded-lg transition-colors duration-200 text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-900/20 mr-1"
+                title={dict.editor.ask_ai}
             >
                 <Wand2 className="w-4 h-4" />
             </button>
 
-            <div className="w-px h-6 bg-gray-300 dark:bg-gray-700 mx-1 self-center" />
+            <div className="w-px h-6 bg-gray-300 dark:bg-gray-700 mx-1" />
 
             <button
                 type="button"
@@ -240,6 +256,8 @@ interface EditorProps {
     value: string;
     onChange: (html: string) => void;
     onRefine?: () => void;
+    onAskAIClick?: () => void;
+    insertContentRef?: React.MutableRefObject<((html: string) => void) | null>;
 }
 
 
@@ -316,8 +334,11 @@ const FontSize = Extension.create({
 
 import { useLanguage } from '@/components/providers/LanguageProvider';
 
-export default function Editor({ value, onChange, onRefine }: EditorProps) {
+export default function Editor({ value, onChange, onRefine, onAskAIClick, insertContentRef }: EditorProps) {
     const [isImageManagerOpen, setIsImageManagerOpen] = useState(false);
+    const [isHtmlMode, setIsHtmlMode] = useState(false);
+    const [htmlContent, setHtmlContent] = useState(value);
+
     const { dict, dir } = useLanguage();
 
     const editor = useEditor({
@@ -400,32 +421,80 @@ export default function Editor({ value, onChange, onRefine }: EditorProps) {
 
     // Update content if value changes externally
     useEffect(() => {
-        if (editor && value !== undefined && editor.getHTML() !== value) {
-            // Fix: We MUST update content even if not empty, otherwise AI Refine won't work
-            // Using queue to avoid race conditions with local updates
-            if (document.activeElement?.closest('.ProseMirror')) {
-                // If user is typing, we might conflict. 
-                // But for AI refine, we typically want to overwrite.
-                // We can check if the value change is significant or came from AI (not easily passed here).
-                // For now, always update if different, but maybe save cursor position?
-                // Simple approach: Just set content.
-
-                // If the new value is significantly different (e.g. AI rewrite), we overwrite.
-                editor.commands.setContent(value);
-            } else {
-                editor.commands.setContent(value);
+        if (value !== undefined) {
+            if (isHtmlMode) {
+                if (htmlContent !== value) {
+                    // eslint-disable-next-line react-hooks/set-state-in-effect
+                    setHtmlContent(value);
+                }
+            } else if (editor && editor.getHTML() !== value) {
+                if (document.activeElement?.closest('.ProseMirror')) {
+                    editor.commands.setContent(value);
+                } else {
+                    editor.commands.setContent(value);
+                }
             }
         }
-    }, [value, editor]);
+    }, [value, editor, isHtmlMode, htmlContent]);
+
+    useEffect(() => {
+        if (insertContentRef) {
+            insertContentRef.current = (html: string) => {
+                if (editor && !isHtmlMode) {
+                    editor.commands.insertContent(html);
+                } else if (isHtmlMode) {
+                    const newContent = htmlContent + html;
+                    setHtmlContent(newContent);
+                    onChange(newContent);
+                }
+            };
+        }
+    }, [editor, isHtmlMode, htmlContent, insertContentRef, onChange]);
+
+    const handleHtmlChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        setHtmlContent(e.target.value);
+        onChange(e.target.value);
+    };
+
+    const toggleHtmlMode = () => {
+        if (isHtmlMode) {
+            editor?.commands.setContent(htmlContent);
+            onChange(htmlContent);
+        } else {
+            setHtmlContent(editor?.getHTML() || '');
+        }
+        setIsHtmlMode(!isHtmlMode);
+    };
 
     return (
-        <div className="border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm bg-white dark:bg-gray-800/40 overflow-hidden transition-colors flex flex-col h-full">
+        <div className="border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm bg-white dark:bg-gray-800/40 overflow-hidden transition-colors flex flex-col h-full relative">
             <div className="shrink-0 z-20 border-b border-gray-200 dark:border-gray-700 bg-gray-50/95 dark:bg-gray-800/95 backdrop-blur-sm">
-                <Toolbar editor={editor} onImageClick={() => setIsImageManagerOpen(true)} onRefineClick={onRefine || (() => { })} />
+                <Toolbar
+                    editor={editor}
+                    onImageClick={() => setIsImageManagerOpen(true)}
+                    onRefineClick={onRefine || (() => { })}
+                    isHtmlMode={isHtmlMode}
+                    onToggleHtmlMode={toggleHtmlMode}
+                />
             </div>
 
-            <div className="flex-1 overflow-y-auto min-h-0 bg-white dark:bg-transparent">
-                <EditorContent editor={editor} className="[&_.ProseMirror]:min-h-[300px] [&_.ProseMirror]:w-full [&_.ProseMirror]:p-4 [&_.ProseMirror]:outline-none" />
+            <div className="flex-1 flex overflow-hidden relative">
+                <div className="flex-1 overflow-hidden bg-white dark:bg-transparent relative flex flex-col min-w-0">
+                    {isHtmlMode ? (
+                        <textarea
+                            value={htmlContent}
+                            onChange={handleHtmlChange}
+                            className="w-full flex-1 p-4 bg-gray-50 dark:bg-gray-900 border-none outline-none resize-none font-mono text-sm text-gray-800 dark:text-gray-300"
+                            placeholder="<html>...</html>"
+                            spellCheck={false}
+                            dir="ltr"
+                        />
+                    ) : (
+                        <div className="flex-1 overflow-y-auto">
+                            <EditorContent editor={editor} className="[&_.ProseMirror]:min-h-[300px] [&_.ProseMirror]:w-full [&_.ProseMirror]:p-4 [&_.ProseMirror]:outline-none" />
+                        </div>
+                    )}
+                </div>
             </div>
 
             <ImageManager

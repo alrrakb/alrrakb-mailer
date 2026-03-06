@@ -7,11 +7,11 @@ import ComposeWindow from '@/components/email/ComposeWindow';
 
 interface Hotel {
     id: string;
-    name_ar: string;
-    name_en: string;
-    stars: number;
+    name_ar?: string;
+    name_en?: string;
+    stars?: number;
     classification?: string;
-    city: string;
+    city?: string;
     website?: string;
     address?: string;
     address_ar?: string;
@@ -31,8 +31,7 @@ interface HotelDetailsModalProps {
 }
 
 export default function HotelDetailsModal({ hotel, onClose }: HotelDetailsModalProps) {
-    const { dict, dir, language } = useLanguage();
-    const isRTL = dir === 'rtl';
+    const { dict, language } = useLanguage();
 
     // Bulk Email Selection State
     const [isSelectionMode, setIsSelectionMode] = useState(false);

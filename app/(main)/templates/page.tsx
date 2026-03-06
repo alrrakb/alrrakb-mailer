@@ -1,9 +1,17 @@
 
 import Link from 'next/link';
-import { Plus, FileText, Trash2 } from 'lucide-react';
+import { Plus, FileText } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 export const revalidate = 0;
+
+interface Template {
+    id: string;
+    name: string;
+    subject: string;
+    thumbnail_url?: string;
+    created_at: string;
+}
 
 export default async function TemplatesPage() {
     const { data: templates } = await supabase
@@ -29,11 +37,14 @@ export default async function TemplatesPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {templates && templates.length > 0 ? (
-                    templates.map((template: any) => (
+                    templates.map((template: Template) => (
                         <div key={template.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow group">
                             <div className="aspect-video bg-gray-100 flex items-center justify-center border-b border-gray-100 relative">
                                 {template.thumbnail_url ? (
-                                    <img src={template.thumbnail_url} alt={template.name} className="w-full h-full object-cover" />
+                                    <div className="w-full h-full relative">
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img src={template.thumbnail_url} alt={template.name} className="w-full h-full object-cover" />
+                                    </div>
                                 ) : (
                                     <FileText className="w-12 h-12 text-gray-300" />
                                 )}

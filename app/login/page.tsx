@@ -44,8 +44,8 @@ export default function LoginPage() {
 
             router.push('/dashboard');
             router.refresh();
-        } catch (err: any) {
-            setError(err.message || dict.login?.error_generic || 'Failed to sign in');
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : dict.login?.error_generic || 'Failed to sign in');
         } finally {
             setIsLoading(false);
         }

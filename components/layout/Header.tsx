@@ -20,6 +20,7 @@ export function Header({ title, onMenuClick }: { title?: string; onMenuClick?: (
 
     // Load accounts on mount
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setAccounts(accountManager.getAccounts());
     }, []);
 

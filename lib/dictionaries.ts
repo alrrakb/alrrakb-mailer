@@ -64,6 +64,9 @@ export const en = {
         loading: "Loading Inbox...",
         view_message: "View Message",
         close: "Close",
+        selected: "selected",
+        delete_selected: "Delete Selected",
+        select_all: "Select All",
     },
     dashboard: {
         title: "Dashboard Overview",
@@ -412,6 +415,41 @@ export const en = {
             error: "Operation failed",
         },
         scheduled_tooltip: "Your Local Time",
+    },
+    ai_chat: {
+        title: "AI Assistant",
+        placeholder: "Ask AI to write or refine...",
+        insert_btn: "Insert into Editor",
+        copy_success: "Copied to clipboard!",
+        quota_error: "Quota exceeded. Please wait a moment and try again.",
+        typing: "AI is typing...",
+        welcome_message: "Hello! I'm your AI assistant. Need help drafting an email, or looking for marketing advice?"
+    },
+    editor: {
+        source_view: "Source Code (HTML)",
+        visual_view: "Visual View",
+        ask_ai: "Ask AI",
+        loading: "Loading editor..."
+    },
+    templates: {
+        select_template: "Select Template",
+        system_default: "System Default",
+        manage_templates: "Manage Templates",
+        add_new: "Add New Template",
+        edit: "Edit",
+        delete: "Delete",
+        set_default: "Set as Default",
+        is_default: "Default",
+        name_label: "Template Name",
+        content_label: "HTML Content (Use {{EMAIL_CONTENT}})",
+        save: "Save Template",
+        cancel: "Cancel",
+        no_data: "No templates found."
+    },
+    ai_settings: {
+        ai_settings_title: "AI Assistant Settings",
+        custom_instructions_label: "Custom Instructions (Persona & Tone)",
+        custom_instructions_placeholder: "E.g., Act as a luxury hotel manager. Always maintain a formal tone and emphasize proximity to landmarks..."
     }
 };
 
@@ -479,6 +517,9 @@ export const ar: Dictionary = {
         loading: "جاري تحميل البريد...",
         view_message: "عرض الرسالة",
         close: "إغلاق",
+        selected: "محدد",
+        delete_selected: "حذف المحدد",
+        select_all: "تحديد الكل",
     },
     dashboard: {
         title: "نظرة عامة",
@@ -827,5 +868,40 @@ export const ar: Dictionary = {
             error: "فشلت العملية",
         },
         scheduled_tooltip: "توقيتك المحلي",
+    },
+    ai_chat: {
+        title: "المساعد الذكي",
+        placeholder: "اطلب من الذكاء الاصطناعي الكتابة أو التعديل...",
+        insert_btn: "إدراج في المحرر",
+        copy_success: "تم النسخ بنجاح!",
+        quota_error: "عذراً، وصلنا للحد الأقصى. يرجى الانتظار ثوانٍ والمحاولة مجدداً.",
+        typing: "المساعد يكتب...",
+        welcome_message: "مرحباً! أنا المساعد الذكي. كيف يمكنني مساعدتك في صياغة رسالتك؟"
+    },
+    editor: {
+        source_view: "عرض الكود (HTML)",
+        visual_view: "العرض المرئي",
+        ask_ai: "اسأل الذكاء الاصطناعي",
+        loading: "جاري تحميل المحرر..."
+    },
+    templates: {
+        select_template: "اختر القالب",
+        system_default: "الافتراضي للنظام",
+        manage_templates: "إدارة القوالب",
+        add_new: "إضافة قالب جديد",
+        edit: "تعديل",
+        delete: "حذف",
+        set_default: "تعيين كافتراضي",
+        is_default: "الافتراضي",
+        name_label: "اسم القالب",
+        content_label: "محتوى الـ HTML (استخدم {{EMAIL_CONTENT}})",
+        save: "حفظ القالب",
+        cancel: "إلغاء",
+        no_data: "لا توجد قوالب."
+    },
+    ai_settings: {
+        ai_settings_title: "إعدادات المساعد الذكي",
+        custom_instructions_label: "تعليمات مخصصة (أسلوب ونبرة الرد)",
+        custom_instructions_placeholder: "مثال: تصرف كمدير فندق 5 نجوم. حافظ دائماً على نبرة رسمية وفخمة وركز على قربنا من المعالم..."
     }
 };

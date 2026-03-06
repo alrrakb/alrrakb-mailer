@@ -4,19 +4,28 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '@/lib/supabase';
 import { useLanguage } from '@/components/providers/LanguageProvider';
-import { X, Search, Check, Building2, Loader2, CheckSquare, Square } from 'lucide-react';
+import { X, Search, Check, Building2, Loader2, CheckSquare } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface EmailSelectionModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSelect: (emails: string[]) => void;
-    currentRecipients: string[]; // To mark already selected ones
+    currentRecipients?: string[];
 }
 
-export default function EmailSelectionModal({ isOpen, onClose, onSelect, currentRecipients }: EmailSelectionModalProps) {
-    const { dict, language } = useLanguage();
-    const [hotels, setHotels] = useState<any[]>([]);
+interface Hotel {
+    id: string;
+    name_en?: string;
+    name_ar?: string;
+    email_info?: string;
+    email_reservation?: string;
+    emails_extra?: { email: string }[] | null;
+}
+
+export default function EmailSelectionModal({ isOpen, onClose, onSelect }: EmailSelectionModalProps) {
+    const { language } = useLanguage();
+    const [hotels, setHotels] = useState<Hotel[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
@@ -41,12 +50,17 @@ export default function EmailSelectionModal({ isOpen, onClose, onSelect, current
             const { data, error } = await supabase
                 .from('hotels')
                 .select('id, name_en, name_ar, email_info, email_reservation, emails_extra')
+                .eq('bounced', false)
                 .order('name_en');
 
-            if (error) throw error;
+            if (error) {
+                console.error("Supabase Error Modal:", JSON.stringify(error, null, 2));
+                throw error;
+            }
             setHotels(data || []);
-        } catch (error) {
-            console.error(error);
+        } catch (error: unknown) {
+            console.error('Error fetching hotels in modal:', error instanceof Error ? error.message : error);
+            try { console.error('Full modal error:', JSON.stringify(error)); } catch (_e) { }
             toast.error("Failed to load hotels");
         } finally {
             setLoading(false);
@@ -62,12 +76,12 @@ export default function EmailSelectionModal({ isOpen, onClose, onSelect, current
     );
 
     // Get all valid emails from a hotel object
-    const getHotelEmails = (hotel: any) => {
-        const primaryEmails = [hotel.email_info, hotel.email_reservation].filter(e => e && e.trim() !== '');
+    const getHotelEmails = (hotel: Hotel) => {
+        const primaryEmails = [hotel.email_info, hotel.email_reservation].filter((e): e is string => !!e && e.trim() !== '');
 
         let extraEmails: string[] = [];
         if (Array.isArray(hotel.emails_extra)) {
-            extraEmails = hotel.emails_extra.map((item: any) => item.email).filter((e: any) => e && e.trim() !== '');
+            extraEmails = hotel.emails_extra.map((item) => item.email).filter((e) => !!e && e.trim() !== '');
         }
 
         return Array.from(new Set([...primaryEmails, ...extraEmails]));

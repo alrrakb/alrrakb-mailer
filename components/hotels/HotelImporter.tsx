@@ -2,11 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/components/auth/AuthProvider';
 
-import { Upload, Loader2, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
+import { Upload, Loader2, RefreshCw } from 'lucide-react';
 import { getBilingualLabel } from '@/lib/hotel-helpers';
 
 export default function HotelImporter({ onComplete }: { onComplete: () => void }) {
+    const { user } = useAuth();
     const [loading, setLoading] = useState(false);
     const [isLocalhost, setIsLocalhost] = useState(false);
     const [logs, setLogs] = useState<string[]>([]);
@@ -38,8 +40,8 @@ export default function HotelImporter({ onComplete }: { onComplete: () => void }
             addLog('Parsing file content...');
             // ... Parsing Logic (Keep existing logic mostly, just wrapping it) ...
             const lines = text.split('\n').map(l => l.trim()).filter(l => l);
-            const parsedHotels = [];
-            let currentHotel: any = {};
+            const parsedHotels: Record<string, unknown>[] = [];
+            let currentHotel: Record<string, unknown> = {};
 
             let isParsingEmails = false;
 
@@ -92,7 +94,10 @@ export default function HotelImporter({ onComplete }: { onComplete: () => void }
                         emails.forEach(e => {
                             if (e.includes('@')) {
                                 const labels = getBilingualLabel('Extra');
-                                currentHotel.emails_extra.push({
+                                if (!Array.isArray(currentHotel.emails_extra)) {
+                                    currentHotel.emails_extra = [];
+                                }
+                                (currentHotel.emails_extra as Record<string, unknown>[]).push({
                                     label: 'Extra',
                                     label_ar: labels.ar,
                                     label_en: labels.en,
@@ -114,7 +119,10 @@ export default function HotelImporter({ onComplete }: { onComplete: () => void }
                             const email = parts.slice(1).join(':').trim();
                             const labels = getBilingualLabel(rawLabel);
 
-                            currentHotel.emails_extra.push({
+                            if (!Array.isArray(currentHotel.emails_extra)) {
+                                currentHotel.emails_extra = [];
+                            }
+                            (currentHotel.emails_extra as Record<string, unknown>[]).push({
                                 label: rawLabel,
                                 label_ar: labels.ar,
                                 label_en: labels.en,
@@ -123,7 +131,10 @@ export default function HotelImporter({ onComplete }: { onComplete: () => void }
                         } else {
                             // Just an email
                             const labels = getBilingualLabel('Extra');
-                            currentHotel.emails_extra.push({
+                            if (!Array.isArray(currentHotel.emails_extra)) {
+                                currentHotel.emails_extra = [];
+                            }
+                            (currentHotel.emails_extra as Record<string, unknown>[]).push({
                                 label: 'Extra',
                                 label_ar: labels.ar,
                                 label_en: labels.en,
@@ -174,8 +185,8 @@ export default function HotelImporter({ onComplete }: { onComplete: () => void }
             for (const newHotel of parsedHotels) {
                 // Find Match (Normalize names for comparison)
                 const match = existingHotels?.find(h =>
-                    h.name_en?.toLowerCase().includes(newHotel.name_en?.toLowerCase()) ||
-                    h.name_ar?.includes(newHotel.name_ar)
+                    h.name_en?.toLowerCase().includes((newHotel.name_en as string)?.toLowerCase() || '') ||
+                    h.name_ar?.includes(newHotel.name_ar || '')
                 );
 
                 if (match) {
@@ -205,7 +216,8 @@ export default function HotelImporter({ onComplete }: { onComplete: () => void }
 
                 } else {
                     addLog(`New Hotel: "${newHotel.name_en}". Inserting...`);
-                    const { error } = await supabase.from('hotels').insert(newHotel);
+                    const hotelWithUser = { ...newHotel, user_id: user?.id };
+                    const { error } = await supabase.from('hotels').insert(hotelWithUser);
                     if (error) addLog(`❌ Error inserting ${newHotel.name_en}: ${error.message}`);
                     else addLog(`✅ Inserted ${newHotel.name_en}`);
                 }
@@ -214,8 +226,8 @@ export default function HotelImporter({ onComplete }: { onComplete: () => void }
             addLog('Done!');
             setTimeout(onComplete, 2000);
 
-        } catch (e: any) {
-            addLog('Critical Error: ' + e.message);
+        } catch (e: unknown) {
+            addLog('Critical Error: ' + (e instanceof Error ? e.message : String(e)));
             console.error(e);
         } finally {
             setLoading(false);

@@ -3,25 +3,46 @@
 import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useLanguage } from '@/components/providers/LanguageProvider';
-import { Search, MapPin, Building2, Phone, Star, Filter, Plus, ChevronDown, Check, Trash2, CheckSquare } from 'lucide-react';
+import { Search, MapPin, Building2, Phone, Star, Plus, ChevronDown, Check, Trash2, CheckSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import HotelDetailsModal from '@/components/hotels/HotelDetailsModal';
 import AddHotelModal from '@/components/hotels/AddHotelModal';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import HotelImporter from '@/components/hotels/HotelImporter';
 
+interface Hotel {
+    id: string;
+    created_at: string;
+    name_ar?: string;
+    name_en?: string;
+    city?: string;
+    city_ar?: string;
+    city_en?: string;
+    stars: number;
+    phone?: string;
+    phone_reservations?: string;
+    phone_main?: string;
+    phone_reservation?: string;
+    email?: string;
+    map_link?: string;
+    user_id?: string;
+    address_ar?: string;
+    address?: string;
+    address_en?: string;
+}
+
 export default function HotelsPage() {
-    const { dict, language, dir } = useLanguage();
-    const [hotels, setHotels] = useState<any[]>([]);
+    const { dict, language } = useLanguage();
+    const [hotels, setHotels] = useState<Hotel[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCity, setSelectedCity] = useState<string | 'all'>('all');
     const [selectedRating, setSelectedRating] = useState<number | 'all'>('all'); // NEW: Star Filter
-    const [selectedHotel, setSelectedHotel] = useState<any | null>(null);
+    const [selectedHotel, setSelectedHotel] = useState<Hotel | null>(null);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
-    const [editingHotel, setEditingHotel] = useState<any | null>(null); // NEW: State for editing
-    const [hotelToDelete, setHotelToDelete] = useState<any | null>(null); // NEW: State for delete confirmation
+    const [editingHotel, setEditingHotel] = useState<Hotel | null>(null); // NEW: State for editing
+    const [hotelToDelete, setHotelToDelete] = useState<Hotel | { id: string, name_en: string } | null>(null); // NEW: State for delete confirmation
 
     // Dropdown States
     const [showCityFilter, setShowCityFilter] = useState(false);
@@ -52,10 +73,15 @@ export default function HotelsPage() {
                 .select('*')
                 .order('created_at', { ascending: false });
 
-            if (error) throw error;
+            if (error) {
+                console.error("Supabase Error Details:", JSON.stringify(error, null, 2));
+                throw error;
+            }
             setHotels(data || []);
-        } catch (error) {
-            console.error('Error fetching hotels:', error);
+        } catch (error: unknown) {
+            console.error('Error fetching hotels:', error instanceof Error ? error.message : error);
+            // also log stringified if it's an object
+            try { console.error('Full error dump:', JSON.stringify(error)); } catch (_e) { }
         } finally {
             setLoading(false);
         }
@@ -101,14 +127,14 @@ export default function HotelsPage() {
     }, [hotels, selectedCity, selectedRating, searchQuery, language]);
 
     // Handler for Edit
-    const handleEdit = (e: React.MouseEvent, hotel: any) => {
+    const handleEdit = (e: React.MouseEvent, hotel: Hotel) => {
         e.stopPropagation();
         setEditingHotel(hotel);
         setIsAddModalOpen(true);
     };
 
     // Handler for Delete Click (Opens Modal)
-    const handleDeleteClick = (e: React.MouseEvent, hotel: any) => {
+    const handleDeleteClick = (e: React.MouseEvent, hotel: Hotel) => {
         e.stopPropagation();
         setHotelToDelete(hotel);
     };
@@ -422,19 +448,17 @@ export default function HotelsPage() {
                                     </p>
 
                                     <div className="space-y-2 mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
-                                        {hotel.phone_reservations || hotel.phone_main ? (
-                                            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                                                <Phone className="w-4 h-4 text-green-500" />
-                                                <span className="font-mono dir-ltr" dir="ltr">
-                                                    {hotel.phone_reservation || hotel.phone_main}
-                                                </span>
-                                            </div>
-                                        ) : null}
+                                        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400" title={hotel.phone_reservation || hotel.phone_main || hotel.phone || ''}>
+                                            <Phone className="w-4 h-4 text-green-500" />
+                                            <span className="font-mono dir-ltr" dir="ltr">
+                                                <span className="truncate max-w-[150px]">{hotel.phone_reservation || hotel.phone_main || hotel.phone || '-'}</span>
+                                            </span>
+                                        </div>
 
                                         <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                                             <MapPin className="w-4 h-4 text-gray-400" />
                                             <span className="truncate max-w-full">
-                                                {language === 'ar' ? (hotel.address_ar || hotel.address || hotel.city) : (hotel.address_en || hotel.address || hotel.city)}
+                                                <span className="truncate max-w-[150px]">{language === 'ar' ? (hotel.address_ar || hotel.address) : (hotel.address_en || hotel.address) || '-'}</span>
                                             </span>
                                         </div>
                                     </div>
@@ -450,7 +474,7 @@ export default function HotelsPage() {
                 {/* Modal */}
                 {selectedHotel && (
                     <HotelDetailsModal
-                        hotel={selectedHotel}
+                        hotel={selectedHotel as Hotel}
                         onClose={() => setSelectedHotel(null)}
                     />
                 )}
@@ -467,7 +491,7 @@ export default function HotelsPage() {
                             setIsAddModalOpen(false);
                             setEditingHotel(null);
                         }}
-                        hotelToEdit={editingHotel} // Pass the hotel to edit
+                        hotelToEdit={(editingHotel as any) || undefined} // Pass the hotel to edit
                     />
                 )}
 

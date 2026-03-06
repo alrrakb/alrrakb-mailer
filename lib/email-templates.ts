@@ -1,42 +1,4 @@
-
-
-export function getBaseEmailHtml(content: string, title: string = 'Update from Tala\'ea Al-Rakeb', showDate: boolean = true) {
-  const today = new Date();
-  // Format date as yyyy/mm/dd
-  const dateStr = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}`;
-
-  const logoSrc = "https://fsmazqlpismmfdddpyqe.supabase.co/storage/v1/object/public/logos/alrrakb.png";
-
-  // Extract the background image URL from the user's template or use the one provided
-  const bgImage = "https://fsmazqlpismmfdddpyqe.supabase.co/storage/v1/object/public/logos/background.png";
-
-  // Use a variable to conditionally render the date block
-  const dateBlock = showDate ? `
-             <tr>
-              <td align="left" style="padding:0;Margin:0;padding-right:20px;padding-left:20px;padding-top:30px">
-               <table width="100%" cellspacing="0" cellpadding="0" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-spacing:0px">
-                 <tr>
-                  <td valign="top" align="center" style="padding:0;Margin:0;width:560px">
-                   <table width="100%" cellspacing="0" cellpadding="0" role="presentation" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-spacing:0px">
-                     <tr>
-                      <td align="center" style="padding:0;Margin:0">
-                        <p style="Margin:0;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;letter-spacing:0;color:#666666;font-size:14px;text-align:center">${dateStr}</p>
-                      </td>
-                     </tr>
-                   </table></td>
-                 </tr>
-               </table></td>
-             </tr>
-  ` : `
-             <tr>
-              <td align="left" style="padding:0;Margin:0;padding-right:20px;padding-left:20px;padding-top:30px">
-                 <!-- Date hidden -->
-              </td>
-             </tr>
-  `;
-
-  return `
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+export const DEFAULT_TEMPLATE_HTML = `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html dir="ltr" xmlns="http://www.w3.org/1999/xhtml" xmlns:o="urn:schemas-microsoft-com:office:office" lang="en">
  <head>
   <meta charset="UTF-8">
@@ -44,12 +6,12 @@ export function getBaseEmailHtml(content: string, title: string = 'Update from T
   <meta name="x-apple-disable-message-reformatting">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta content="telephone=no" name="format-detection">
-  <title>${title}</title><!--[if (mso 16)]>
+  <title>{{TITLE}}</title><!--[if (mso 16)]>
     <style type="text/css">
     a {text-decoration: none;}
     </style>
     <![endif]--><!--[if gte mso 9]><style>sup { font-size: 100% !important; }</style><![endif]--><!--[if gte mso 9]>
-    <noscript>
+<noscript>
          <xml>
            <o:OfficeDocumentSettings>
            <o:AllowPNG></o:AllowPNG>
@@ -63,8 +25,6 @@ export function getBaseEmailHtml(content: string, title: string = 'Update from T
     </w:WordDocument>
     </xml><![endif]-->
   <style type="text/css">
-    /* Essential styles from the user's template */
-    a {text-decoration: none;}
     .rollover:hover .rollover-first { max-height:0px!important; display:none!important; }
     .rollover:hover .rollover-second { max-height:none!important; display:block!important; }
     .rollover span { font-size:0px; }
@@ -75,7 +35,7 @@ export function getBaseEmailHtml(content: string, title: string = 'Update from T
     a[x-apple-data-detectors], #MessageViewBody a { color:inherit!important; text-decoration:none!important; font-size:inherit!important; font-family:inherit!important; font-weight:inherit!important; line-height:inherit!important; }
     .es-desk-hidden { display:none; float:left; overflow:hidden; width:0; max-height:0; line-height:0; mso-hide:all; }
     
-    /* Custom Styling for the Greeting/Headers to match user request */
+    /* Custom Styling for the Greeting/Headers */
     .es-content-body h3, .es-content-body h2, .es-content-body h1 {
         font-family: arial, 'helvetica neue', helvetica, sans-serif;
         color: #79bbe0 !important;
@@ -85,24 +45,29 @@ export function getBaseEmailHtml(content: string, title: string = 'Update from T
         margin-bottom: 10px;
     }
     
-    /* FIX: Ensure paragraphs and lists have proper spacing */
+    /* Formatting Fixes for Tiptap Rich Text Content inside template */
     .es-content-body p, .es-content-body ul, .es-content-body ol {
         margin-top: 0;
-        margin-bottom: 15px; /* Add visible gap between paragraphs */
+        margin-bottom: 15px;
         line-height: 1.5;
     }
+    p:empty:before { content: "\\a0"; }
 
-    /* FIX: Ensure empty lines (created by Enter) are visible */
-    p:empty:before {
-        content: "\\a0"; /* Non-breaking space */
-    }
-    
-    
     @media only screen and (max-width:600px) {
         .es-m-p0r { padding-right:0px!important } 
+        *[class="gmail-fix"] { display:none!important } 
+        p, a { line-height:150%!important } 
+        h1, h1 a, h2, h2 a, h3, h3 a, h4, h4 a, h5, h5 a, h6, h6 a { line-height:120%!important } 
         h1 { font-size:36px!important; text-align:left } 
         h2 { font-size:26px!important; text-align:left } 
         h3 { font-size:20px!important; text-align:left } 
+        h4 { font-size:24px!important; text-align:left } 
+        h5 { font-size:20px!important; text-align:left } 
+        h6 { font-size:16px!important; text-align:left } 
+        .es-m-txt-c, .es-m-txt-c h1, .es-m-txt-c h2, .es-m-txt-c h3, .es-m-txt-c h4, .es-m-txt-c h5, .es-m-txt-c h6 { text-align:center!important } 
+        .es-m-txt-r, .es-m-txt-r h1, .es-m-txt-r h2, .es-m-txt-r h3, .es-m-txt-r h4, .es-m-txt-r h5, .es-m-txt-r h6 { text-align:right!important } 
+        .es-m-txt-j, .es-m-txt-j h1, .es-m-txt-j h2, .es-m-txt-j h3, .es-m-txt-j h4, .es-m-txt-j h5, .es-m-txt-j h6 { text-align:justify!important } 
+        .es-m-txt-l, .es-m-txt-l h1, .es-m-txt-l h2, .es-m-txt-l h3, .es-m-txt-l h4, .es-m-txt-l h5, .es-m-txt-l h6 { text-align:left!important } 
         .es-adaptive table, .es-left, .es-right { width:100%!important } 
         .es-content table, .es-header table, .es-footer table, .es-content, .es-footer, .es-header { width:100%!important; max-width:600px!important } 
         .adapt-img { width:100%!important; height:auto!important } 
@@ -129,9 +94,8 @@ export function getBaseEmailHtml(content: string, title: string = 'Update from T
                   <td valign="top" align="center" class="es-m-p0r" style="padding:0;Margin:0;width:560px">
                    <table width="100%" cellspacing="0" cellpadding="0" role="presentation" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-spacing:0px">
                      <tr>
-                      <td align="center" style="padding:0;Margin:0;font-size:0px">
-                         <img src="${logoSrc}" alt="Logo" title="Logo" width="150" class="adapt-img" style="display:block;font-size:12px;border:0;outline:none;text-decoration:none;margin:0">
-                      </td>                     </tr>
+                      <td align="center" style="padding:0;Margin:0;font-size:0px"><img src="https://fsmazqlpismmfdddpyqe.supabase.co/storage/v1/object/public/logos/alrrakb.png" alt="Logo" title="Logo" width="150" class="adapt-img" style="display:block;font-size:12px;border:0;outline:none;text-decoration:none;margin:0"></td>
+                     </tr>
                      <tr>
                       <td style="padding:0;Margin:0">
                        <table width="100%" cellspacing="0" cellpadding="0" class="es-menu" role="presentation" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-spacing:0px">
@@ -158,18 +122,17 @@ export function getBaseEmailHtml(content: string, title: string = 'Update from T
          <tr>
           <td align="center" style="padding:0;Margin:0">
            <table cellspacing="0" cellpadding="0" bgcolor="#ffffff" align="center" class="es-content-body" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-spacing:0px;background-color:#FFFFFF;border-top:10px solid #39285e;width:600px;border-bottom:10px solid #39285e" role="none">
-             
-             ${dateBlock}
-             
+             {{DATE_BLOCK}}
              <tr>
-              <td background="${bgImage}" align="left" style="padding:0;Margin:0;padding-right:20px;padding-left:20px;padding-top:20px;background-image:url(${bgImage});background-repeat:no-repeat;background-position:center top;background-size:cover">
+              <td background="https://fsmazqlpismmfdddpyqe.supabase.co/storage/v1/object/public/logos/background.png" align="left" style="padding:0;Margin:0;padding-right:20px;padding-left:20px;padding-top:20px;background-image:url(https://fsmazqlpismmfdddpyqe.supabase.co/storage/v1/object/public/logos/background.png);background-repeat:no-repeat;background-position:center top;background-size:cover">
                <table width="100%" cellspacing="0" cellpadding="0" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-spacing:0px">
                  <tr>
                   <td valign="top" align="center" style="padding:0;Margin:0;width:560px">
                    <table width="100%" cellspacing="0" cellpadding="0" role="presentation" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-spacing:0px">
                      <tr>
-                      <td style="padding:0;Margin:0;padding-bottom:10px;padding-top:5px">
-                        ${content}
+                      <td align="left" style="padding:0;Margin:0;padding-bottom:10px;padding-top:5px">
+                        <!-- INJECTED BODY -->
+                        {{EMAIL_CONTENT}}
                       </td>
                      </tr>
                    </table></td>
@@ -220,6 +183,39 @@ export function getBaseEmailHtml(content: string, title: string = 'Update from T
    </table>
   </div>
  </body>
-</html>
+</html>`;
+
+export function constructTemplateHtml(templateHtml: string | null | undefined, content: string, title: string = "Update from Tala'ea Al-Rakeb", showDate: boolean = true) {
+  const baseHtml = templateHtml || DEFAULT_TEMPLATE_HTML;
+
+  const today = new Date();
+  const dateStr = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}`;
+
+  const dateBlock = showDate ? `
+             <tr>
+              <td align="left" style="padding:0;Margin:0;padding-right:20px;padding-left:20px;padding-top:30px">
+               <table width="100%" cellspacing="0" cellpadding="0" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-spacing:0px">
+                 <tr>
+                  <td valign="top" align="center" style="padding:0;Margin:0;width:560px">
+                   <table width="100%" cellspacing="0" cellpadding="0" role="presentation" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-spacing:0px">
+                     <tr>
+                      <td align="left" style="padding:0;Margin:0"><p style="Margin:0;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;letter-spacing:0;color:#666666;font-size:14px">${dateStr}</p></td>
+                     </tr>
+                   </table></td>
+                 </tr>
+               </table></td>
+             </tr>
+  ` : `
+             <tr>
+              <td align="left" style="padding:0;Margin:0;padding-right:20px;padding-left:20px;padding-top:30px">
+                 <!-- Date hidden -->
+              </td>
+             </tr>
   `;
+
+  // Always replace the standard tags
+  return baseHtml
+    .replace('{{TITLE}}', title)
+    .replace('{{DATE_BLOCK}}', dateBlock)
+    .replace('{{EMAIL_CONTENT}}', content);
 }

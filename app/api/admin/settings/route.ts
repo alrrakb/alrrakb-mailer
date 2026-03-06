@@ -66,16 +66,16 @@ export async function POST(req: Request) {
             if (error) throw error;
 
             // Convert array to object
-            const settings: any = {};
-            data.forEach((item: any) => settings[item.key] = item.value);
+            const settings: Record<string, string> = {};
+            data.forEach((item: { key: string; value: string }) => settings[item.key] = item.value);
 
             return NextResponse.json(settings);
         }
 
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Settings API Error:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
     }
 }

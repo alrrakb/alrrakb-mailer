@@ -24,12 +24,12 @@ const MODELS = [
     "gemini-pro"
 ];
 
-export async function generateContent(prompt: string, validationSchema?: any) {
+export async function generateContent(prompt: string) {
     if (!apiKey) {
         throw new Error("API Key not found");
     }
 
-    let lastError: any = null;
+    let lastError: unknown = null;
 
     // Try each model in sequence
     for (const modelName of MODELS) {
@@ -52,17 +52,19 @@ export async function generateContent(prompt: string, validationSchema?: any) {
                     }
 
                     return text; // Success! Return immediately.
-                } catch (err: any) {
+                } catch (err: unknown) {
                     attempts++;
 
+                    const geminiErr = err as { response?: { status: number }, status?: number, message?: string };
+
                     // If it's a 404 (Not Found), this model isn't available. Break loop to try next model.
-                    if (err.response?.status === 404 || err.message?.includes('404')) {
+                    if (geminiErr.response?.status === 404 || geminiErr.message?.includes('404')) {
                         console.warn(`Model ${modelName} not found (404). Skipping...`);
                         break;
                     }
 
                     // If it's a 429 (Rate Limit), wait and retry
-                    if (err.response?.status === 429 || err.status === 429 || err.message?.includes('429') || err.message?.includes('quota')) {
+                    if (geminiErr.response?.status === 429 || geminiErr.status === 429 || geminiErr.message?.includes('429') || geminiErr.message?.includes('quota')) {
                         if (attempts <= maxRetryPerModel) {
                             console.warn(`Model ${modelName} rate limited. Retrying (${attempts}/${maxRetryPerModel})...`);
                             await new Promise(r => setTimeout(r, 2000 * attempts)); // Backoff
@@ -79,9 +81,9 @@ export async function generateContent(prompt: string, validationSchema?: any) {
                 }
             }
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             lastError = error;
-            console.warn(`Failed with model ${modelName}:`, error.message);
+            console.warn(`Failed with model ${modelName}:`, error instanceof Error ? error.message : String(error));
             // Continue to next model in the MODELS list
         }
     }

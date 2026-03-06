@@ -1,5 +1,5 @@
 import { X, Eye, FileText } from 'lucide-react';
-import { getBaseEmailHtml } from '@/lib/email-templates';
+import { constructTemplateHtml } from '@/lib/email-templates';
 import { useLanguage } from '@/components/providers/LanguageProvider';
 
 interface EmailPreviewProps {
@@ -11,10 +11,10 @@ interface EmailPreviewProps {
 }
 
 export default function EmailPreview({ content, subject, isOpen, onClose, showDate }: EmailPreviewProps) {
-    const { dict, dir } = useLanguage();
+    const { dict } = useLanguage();
     if (!isOpen) return null;
 
-    const html = getBaseEmailHtml(content, subject, showDate);
+    const html = constructTemplateHtml(null, content, subject, showDate);
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-200">

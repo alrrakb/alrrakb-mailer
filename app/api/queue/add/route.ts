@@ -1,11 +1,12 @@
 
 import { createClient } from '@/lib/supabase-server';
 import { NextResponse } from 'next/server';
+import { constructTemplateHtml } from '@/lib/email-templates';
 
 export async function POST(req: Request) {
     try {
         const body = await req.json();
-        const { recipients, subject, content, userEmail, attachments, scheduledAt } = body;
+        const { recipients, subject, content, userEmail, attachments, scheduledAt, templateId } = body;
 
         if (!recipients || !recipients.length || !subject || !content) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -13,12 +14,21 @@ export async function POST(req: Request) {
 
         const supabase = await createClient();
 
+        let finalHtml = content;
+        if (templateId) {
+            const { data: template } = await supabase.from('templates').select('html_content').eq('id', templateId).single();
+            finalHtml = constructTemplateHtml(template?.html_content, content, subject, true);
+        } else {
+            // Default system template fallback
+            finalHtml = constructTemplateHtml(null, content, subject, true);
+        }
+
         // 1. Create Campaign
         const { data: campaign, error: campError } = await supabase
             .from('campaigns')
             .insert({
                 subject,
-                body_html: content,
+                body_html: finalHtml,
                 attachments: attachments || [],
                 user_email: userEmail,
                 status: 'active',
@@ -52,9 +62,9 @@ export async function POST(req: Request) {
 
         return NextResponse.json({ success: true, count: rows.length, campaignId: campaign.id });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("QUEUE ADD ERROR:", error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
     }
 }
 

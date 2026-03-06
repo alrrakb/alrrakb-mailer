@@ -48,7 +48,7 @@ export default function AdminSettingsPage() {
             const data = await res.json();
             if (data.smtp_password) setSmtpPassword(data.smtp_password);
         } catch (error) {
-            console.error('Failed to fetch settings');
+            console.error('Failed to fetch settings', error);
         } finally {
             setIsLoading(false);
         }
@@ -65,6 +65,7 @@ export default function AdminSettingsPage() {
             showToast('success', suspend ? dict.settings.suspend_success : dict.settings.activate_success);
             setConfirmSuspend(null);
         } catch (error) {
+            console.error(error);
             showToast('error', dict.settings.operation_failed);
         }
     };
@@ -80,6 +81,7 @@ export default function AdminSettingsPage() {
             showToast('success', dict.settings.drafts_cleared);
             setConfirmClearDrafts(false);
         } catch (error) {
+            console.error(error);
             showToast('error', dict.settings.operation_failed);
         }
     };
@@ -95,13 +97,14 @@ export default function AdminSettingsPage() {
             if (!res.ok) throw new Error('Failed');
             showToast('success', dict.settings.smtp_updated);
         } catch (error) {
+            console.error(error);
             showToast('error', dict.settings.smtp_failed);
         } finally {
             setIsSavingSmtp(false);
         }
     };
 
-    if (isAuthLoading || (user?.email !== 'admin@rrakb.com')) return <div className="p-8 text-center text-gray-500">{dict.settings.loading_settings}</div>;
+    if (isAuthLoading || (user?.email !== 'admin@rrakb.com') || isLoading) return <div className="p-8 text-center text-gray-500">{dict.settings.loading_settings}</div>;
 
     return (
         <div className="max-w-4xl mx-auto py-8 px-4">

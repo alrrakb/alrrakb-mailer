@@ -1,7 +1,7 @@
 "use client";
 
 import { useLanguage } from '@/components/providers/LanguageProvider';
-import { Save, X } from 'lucide-react';
+import { Save } from 'lucide-react';
 
 interface QuickLoginPromptProps {
     isOpen: boolean;

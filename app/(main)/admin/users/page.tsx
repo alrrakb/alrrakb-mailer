@@ -52,7 +52,6 @@ export default function AdminUsersPage() {
 
     // Create User State
     const [newEmail, setNewEmail] = useState('');
-    const [newToken, setNewToken] = useState('');
     const [createdUser, setCreatedUser] = useState<{ email: string, token: string } | null>(null);
     const [userToDelete, setUserToDelete] = useState<string | null>(null);
 
@@ -87,11 +86,29 @@ export default function AdminUsersPage() {
                 router.push('/dashboard');
                 return;
             }
+
+            const fetchUsers = async () => {
+                setIsLoading(true);
+                try {
+                    const res = await fetch('/api/admin/users');
+                    const data = await res.json();
+                    if (Array.isArray(data)) {
+                        setUsers(data);
+                    }
+                } catch (error) {
+                    console.error('Failed to fetch users', error);
+                    showToast('error', dict.admin.fetch_error);
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+
             fetchUsers();
         }
-    }, [user, isAuthLoading, router]);
+    }, [user, isAuthLoading, router, dict.admin.fetch_error]);
 
     const fetchUsers = async () => {
+        // Kept for manual refresh
         setIsLoading(true);
         try {
             const res = await fetch('/api/admin/users');
@@ -123,10 +140,10 @@ export default function AdminUsersPage() {
 
             setCreatedUser({ email: newEmail, token });
             setNewEmail('');
-            setNewToken('');
             showToast('success', dict.admin.user_created);
             fetchUsers(); // Refresh list
         } catch (error) {
+            console.error(error);
             showToast('error', dict.admin.create_error);
         } finally {
             setIsCreating(false);
@@ -141,6 +158,7 @@ export default function AdminUsersPage() {
             setUserToDelete(null);
             showToast('success', dict.admin.delete_success);
         } catch (error) {
+            console.error(error);
             showToast('error', dict.admin.delete_error);
         }
     };
@@ -160,9 +178,9 @@ export default function AdminUsersPage() {
             fetchUsers();
             setUserToSuspend(null);
             showToast('success', action === 'suspend' ? dict.admin.suspend_success : dict.admin.activate_success);
-        } catch (error: any) {
+        } catch (error) {
             console.error(error);
-            showToast('error', error.message || dict.admin.status_error);
+            showToast('error', error instanceof Error ? error.message : dict.admin.status_error);
         }
     };
 
@@ -183,6 +201,7 @@ export default function AdminUsersPage() {
             setRegeneratingFor(null);
             showToast('success', dict.admin.regen_success);
         } catch (error) {
+            console.error(error);
             showToast('error', dict.admin.regen_error);
         }
     };
@@ -195,13 +214,14 @@ export default function AdminUsersPage() {
             const data = await res.json();
             setUserLogs(data);
         } catch (error) {
+            console.error(error);
             showToast('error', dict.admin.fetch_logs_error);
         } finally {
             setIsLoadingLogs(false);
         }
     };
 
-    if (isAuthLoading || (user?.email !== 'admin@rrakb.com')) {
+    if (isAuthLoading || (user?.email !== 'admin@rrakb.com') || isLoading) {
         return <div className="p-8 text-center text-gray-500">{dict.admin.loading_panel}</div>;
     }
 

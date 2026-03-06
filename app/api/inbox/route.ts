@@ -32,8 +32,8 @@ export async function GET(request: Request) {
         if (error) throw error;
 
         return NextResponse.json(data);
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
     }
 }
 
@@ -130,9 +130,9 @@ export async function POST(request: Request) {
         if (error) throw error;
 
         return NextResponse.json(data);
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Inbox Error:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
     }
 }
 
@@ -152,8 +152,8 @@ export async function PATCH(request: Request) {
         if (error) throw error;
 
         return NextResponse.json({ success: true });
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
     }
 }
 
@@ -162,18 +162,35 @@ export async function DELETE(request: Request) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
-    if (!id) return NextResponse.json({ error: 'ID is required' }, { status: 400 });
+    let idsToDelete: string[] = [];
+
+    if (id) {
+        idsToDelete = [id];
+    } else {
+        try {
+            const body = await request.json();
+            if (body.ids && Array.isArray(body.ids)) {
+                idsToDelete = body.ids;
+            }
+        } catch {
+            // Body might be empty or invalid JSON
+        }
+    }
+
+    if (idsToDelete.length === 0) {
+        return NextResponse.json({ error: 'ID or IDs required' }, { status: 400 });
+    }
 
     try {
         const { error } = await supabase
             .from('inbox')
             .delete()
-            .eq('id', id);
+            .in('id', idsToDelete);
 
         if (error) throw error;
 
         return NextResponse.json({ success: true });
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
     }
 }

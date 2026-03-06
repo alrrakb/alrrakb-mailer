@@ -28,6 +28,7 @@ export default function LanguageProvider({ children }: { children: React.ReactNo
         // Load from localStorage if available
         const savedLang = localStorage.getItem('app-language') as Language;
         if (savedLang) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setLanguage(savedLang);
         } else {
             // Default to Arabic if user prefers it strictly, otherwise English default ?

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import { useForm, useFieldArray, Controller } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import { X, Plus, Trash2, Save, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { getBilingualLabel } from '@/lib/hotel-helpers';
@@ -10,7 +10,7 @@ import { useLanguage } from '@/components/providers/LanguageProvider';
 interface AddHotelModalProps {
     onClose: () => void;
     onSuccess: () => void;
-    hotelToEdit?: any; // Start with 'any' since we haven't strictly typed the Supabase row here yet
+    hotelToEdit?: Partial<FormData> & { id: string };
 }
 
 type ExtraEmail = {
@@ -40,7 +40,7 @@ type FormData = {
 };
 
 export default function AddHotelModal({ onClose, onSuccess, hotelToEdit }: AddHotelModalProps) {
-    const { dict, language, dir } = useLanguage();
+    const { dict } = useLanguage();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -110,9 +110,9 @@ export default function AddHotelModal({ onClose, onSuccess, hotelToEdit }: AddHo
 
             onSuccess();
             onClose();
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error(err);
-            setError(err.message || 'Failed to save hotel');
+            setError(err instanceof Error ? err.message : 'Failed to save hotel');
         } finally {
             setIsSubmitting(false);
         }

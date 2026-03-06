@@ -3,7 +3,21 @@
 import { useLanguage } from '@/components/providers/LanguageProvider';
 import { Mail, CheckCircle, XCircle, Calendar, Clock } from 'lucide-react';
 
-export default function DashboardContent({ sentCount, failedCount, recentLogs }: any) {
+interface DashboardLog {
+    id: string;
+    recipient: string;
+    subject: string | null;
+    status: string;
+    sent_at: string;
+}
+
+interface DashboardContentProps {
+    sentCount: number;
+    failedCount: number;
+    recentLogs: DashboardLog[];
+}
+
+export default function DashboardContent({ sentCount, failedCount, recentLogs }: DashboardContentProps) {
     const { dict } = useLanguage();
 
     return (
@@ -54,7 +68,7 @@ export default function DashboardContent({ sentCount, failedCount, recentLogs }:
                 </div>
                 <div className="divide-y divide-gray-100 dark:divide-gray-700">
                     {recentLogs && recentLogs.length > 0 ? (
-                        recentLogs.map((log: any) => (
+                        recentLogs.map((log: DashboardLog) => (
                             <div key={log.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group">
                                 <div className="flex justify-between items-start mb-3">
                                     <div className="flex items-center gap-3">

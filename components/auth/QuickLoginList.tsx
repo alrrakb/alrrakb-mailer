@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { accountManager, StoredAccount } from '@/lib/account-manager';
 import { supabase } from '@/lib/supabase';
-import { X, User, AlertCircle } from 'lucide-react';
+import { X, AlertCircle } from 'lucide-react';
 import { useLanguage } from '@/components/providers/LanguageProvider';
 
 export default function QuickLoginList() {
@@ -12,7 +12,10 @@ export default function QuickLoginList() {
     const { dict } = useLanguage();
 
     useEffect(() => {
-        setSavedAccounts(accountManager.getSavedAccounts());
+        const timer = setTimeout(() => {
+            setSavedAccounts(accountManager.getSavedAccounts());
+        }, 0);
+        return () => clearTimeout(timer);
     }, []);
 
     const handleQuickLogin = async (account: StoredAccount) => {

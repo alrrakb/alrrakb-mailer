@@ -23,7 +23,7 @@ async function runOptions() {
             // Silent for "No pending emails" to avoid clutter, or maybe just a dot
             process.stdout.write('.');
         }
-    } catch (error) {
+    } catch {
         console.error(`\n[${new Date().toLocaleTimeString()}] ❌ Connection Failed: Is the server running?`);
     }
 }

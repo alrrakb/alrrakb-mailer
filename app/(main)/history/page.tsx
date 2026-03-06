@@ -85,6 +85,7 @@ export default function HistoryPage() {
             fetchLogs(true);
         }, 500);
         return () => clearTimeout(timer);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [searchQuery]);
 
     return (
@@ -334,7 +335,7 @@ export default function HistoryPage() {
     );
 }
 
-function HistoryIcon(props: any) {
+function HistoryIcon(props: React.SVGProps<SVGSVGElement>) {
     return (
         <svg
             {...props}
