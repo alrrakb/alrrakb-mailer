@@ -460,14 +460,15 @@ export const en = {
         scheduled_tooltip: "Your Local Time",
     },
     ai_chat: {
-        title: "AI Assistant",
-        placeholder: "Ask AI to write or refine...",
+        title: "AI Email Assistant",
+        placeholder: "Ask me to write or improve your email...",
         insert_btn: "Insert into Editor",
         copy_success: "Copied to clipboard!",
-        quota_error: "Quota exceeded. Please wait a moment and try again.",
+        quota_error: "You've reached the AI usage limit. Please try again later.",
         typing: "AI is typing...",
-        welcome_message: "Hello! I'm your AI assistant. Need help drafting an email, or looking for marketing advice?",
-        keyboard_hint: "Press Enter to send, Shift+Enter for new line"
+        welcome_message: "Hello! I'm your AI assistant. Ask me to write, refine, or translate your email content.",
+        keyboard_hint: "Press Enter to send · Shift+Enter for new line",
+        general_error: "An error occurred while processing your request."
     },
     editor: {
         source_view: "Source Code (HTML)",
@@ -493,7 +494,8 @@ export const en = {
     ai_settings: {
         ai_settings_title: "AI Assistant Settings",
         custom_instructions_label: "Custom Instructions (Persona & Tone)",
-        custom_instructions_placeholder: "E.g., Act as a luxury hotel manager. Always maintain a formal tone and emphasize proximity to landmarks..."
+        custom_instructions_placeholder: "E.g., Act as a luxury hotel manager. Always maintain a formal tone and emphasize proximity to landmarks...",
+        saved_success: "AI settings saved successfully"
     },
     spam: {
         title: "Spam Score Analysis",
@@ -1001,14 +1003,15 @@ export const ar: Dictionary = {
         scheduled_tooltip: "توقيتك المحلي",
     },
     ai_chat: {
-        title: "المساعد الذكي",
-        placeholder: "اطلب من الذكاء الاصطناعي الكتابة أو التعديل...",
+        title: "مساعد البريد الذكي",
+        placeholder: "اطلب مني كتابة أو تحسين بريدك...",
         insert_btn: "إدراج في المحرر",
-        copy_success: "تم النسخ بنجاح!",
-        quota_error: "عذراً، وصلنا للحد الأقصى. يرجى الانتظار ثوانٍ والمحاولة مجدداً.",
+        copy_success: "تم النسخ إلى الحافظة!",
+        quota_error: "لقد وصلت إلى حد استخدام الذكاء الاصطناعي. يرجى المحاولة مرة أخرى لاحقاً.",
         typing: "المساعد يكتب...",
-        welcome_message: "مرحباً! أنا المساعد الذكي. كيف يمكنني مساعدتك في صياغة رسالتك؟",
-        keyboard_hint: "اضغط Enter للإرسال، Shift+Enter لسطر جديد"
+        welcome_message: "مرحباً! أنا مساعدك الذكي. اطلب مني كتابة أو تحسين أو ترجمة محتوى بريدك الإلكتروني.",
+        keyboard_hint: "اضغط Enter للإرسال · Shift+Enter لسطر جديد",
+        general_error: "حدث خطأ أثناء معالجة طلبك."
     },
     editor: {
         source_view: "عرض الكود (HTML)",
@@ -1034,7 +1037,8 @@ export const ar: Dictionary = {
     ai_settings: {
         ai_settings_title: "إعدادات المساعد الذكي",
         custom_instructions_label: "تعليمات مخصصة (أسلوب ونبرة الرد)",
-        custom_instructions_placeholder: "مثال: تصرف كمدير فندق 5 نجوم. حافظ دائماً على نبرة رسمية وفخمة وركز على قربنا من المعالم..."
+        custom_instructions_placeholder: "مثال: تصرف كمدير فندق 5 نجوم. حافظ دائماً على نبرة رسمية وفخمة وركز على قربنا من المعالم...",
+        saved_success: "تم حفظ إعدادات الذكاء الاصطناعي بنجاح"
     },
     spam: {
         title: "تحليل درجة البريد المزعج",

@@ -13,9 +13,7 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { data: profileData } = await supabase.from('profiles').select('permissions').eq('id', user.id).single();
-        const role = profileData?.permissions?.role || 'user';
-        const isAdmin = role === 'admin' || user.email === 'admin@rrakb.com';
+
 
         if (id) {
             // Always scope to the requesting user — no admin override here.

@@ -45,9 +45,8 @@ interface GlobalStats {
 
 export default function QueueDashboard() {
     const { dict } = useLanguage();
-    const { user, isLoading: isAuthLoading } = useAuth();
-    const { hasAccess, role } = usePermissions();
-    const router = useRouter();
+    const { isLoading: isAuthLoading } = useAuth();
+    const { hasAccess } = usePermissions();
     const [stats, setStats] = useState<GlobalStats | null>(null); // Global stats
     const [campaigns, setCampaigns] = useState<CampaignRecord[]>([]); // Campaign List
     const [loading, setLoading] = useState(true);

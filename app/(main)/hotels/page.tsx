@@ -504,7 +504,7 @@ export default function HotelsPage() {
                             setIsAddModalOpen(false);
                             setEditingHotel(null);
                         }}
-                        hotelToEdit={(editingHotel as Record<string, unknown>) || undefined} // Pass the hotel to edit
+                        hotelToEdit={(editingHotel as any) || undefined} // Pass the hotel to edit
                     />
                 )}
 

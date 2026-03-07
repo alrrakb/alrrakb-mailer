@@ -31,7 +31,7 @@ export default function ComposeWindow({ initialRecipients = [], isModal = false,
     // ... existing hooks ...
     const { user } = useAuth();
     const { hasAccess } = usePermissions();
-    const { dict, dir, language } = useLanguage();
+    const { dict } = useLanguage();
     const [content, setContent] = useState('');
     // ... rest of state ...
     const [editorKey, setEditorKey] = useState(0);
@@ -101,11 +101,6 @@ export default function ComposeWindow({ initialRecipients = [], isModal = false,
     }, []);
 
     // ... AI Handlers ...
-    const openAIModal = (mode: 'generate' | 'refine') => {
-        setAiMode(mode);
-        setAiPrompt('');
-        setIsAIModalOpen(true);
-    };
 
     const handleAIRequest = async () => {
         // ... (Keep existing AI logic) ...

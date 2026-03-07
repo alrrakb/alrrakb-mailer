@@ -111,7 +111,7 @@ export default function ChatSidebar({ isOpen, onClose, onInsertContent }: ChatSi
                 role: 'assistant',
                 content: isRateLimit
                     ? dict.ai_chat.quota_error
-                    : (isAr ? 'حدث خطأ أثناء معالجة طلبك.' : 'An error occurred while processing your request.')
+                    : dict.ai_chat.general_error
             };
             setMessages(prev => [...prev, systemErrorMsg]);
         } finally {
