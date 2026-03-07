@@ -1,0 +1,70 @@
+﻿
+> marketing-mailer@0.1.0 lint
+> eslint
+
+
+C:\Users\Administrator\Downloads\ABDM\Compressed\marketing-mailer\app\(main)\admin\queue\page.tsx
+    4:89  warning  'Loader2' is defined but never used                                                                                @typescript-eslint/no-unused-vars
+  101:60  error    Unexpected any. Specify a different type                                                                           @typescript-eslint/no-explicit-any
+  212:68  error    Unexpected any. Specify a different type                                                                           @typescript-eslint/no-explicit-any
+  245:8   warning  React Hook useEffect has a missing dependency: 'fetchCampaigns'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\Administrator\Downloads\ABDM\Compressed\marketing-mailer\app\(main)\admin\settings\page.tsx
+  32:13  warning  'hasAccess' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Administrator\Downloads\ABDM\Compressed\marketing-mailer\app\(main)\admin\users\page.tsx
+  115:8  warning  React Hook useEffect has missing dependencies: 'isAdmin' and 'role'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\Administrator\Downloads\ABDM\Compressed\marketing-mailer\app\(main)\history\page.tsx
+   4:10  warning  'supabase' is defined but never used        @typescript-eslint/no-unused-vars
+  41:27  warning  'count' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Administrator\Downloads\ABDM\Compressed\marketing-mailer\app\(main)\hotels\page.tsx
+   87:86  warning  '_e' is defined but never used            @typescript-eslint/no-unused-vars
+  507:55  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Administrator\Downloads\ABDM\Compressed\marketing-mailer\app\(main)\inbox\page.tsx
+   47:15  warning  'interval' is assigned a value but never used                                                                                 @typescript-eslint/no-unused-vars
+  228:43  error    React Hook "useState" is called conditionally. React Hooks must be called in the exact same order in every component render   react-hooks/rules-of-hooks
+  231:5   error    React Hook "useEffect" is called conditionally. React Hooks must be called in the exact same order in every component render  react-hooks/rules-of-hooks
+
+C:\Users\Administrator\Downloads\ABDM\Compressed\marketing-mailer\app\(main)\profile\page.tsx
+  203:34  error  Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+
+C:\Users\Administrator\Downloads\ABDM\Compressed\marketing-mailer\app\api\ai\route.ts
+  37:38  warning  '_' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Administrator\Downloads\ABDM\Compressed\marketing-mailer\app\api\inbox\route.ts
+  38:23  warning  'error' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Administrator\Downloads\ABDM\Compressed\marketing-mailer\components\ThemeToggle.tsx
+  10:13  warning  'dict' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Administrator\Downloads\ABDM\Compressed\marketing-mailer\components\admin\UserPermissionsModal.tsx
+   41:8    warning  React Hook useEffect has a missing dependency: 'fetchPermissions'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  218:131  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`                                                      react/no-unescaped-entities
+  218:141  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`                                                      react/no-unescaped-entities
+
+C:\Users\Administrator\Downloads\ABDM\Compressed\marketing-mailer\components\email\ComposeWindow.tsx
+  9:110  warning  'Bot' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Administrator\Downloads\ABDM\Compressed\marketing-mailer\components\email\Editor.tsx
+  340:61  warning  'onAskAIClick' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Administrator\Downloads\ABDM\Compressed\marketing-mailer\components\email\EmailSelectionModal.tsx
+  63:87  warning  '_e' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Administrator\Downloads\ABDM\Compressed\marketing-mailer\components\shared\UnauthorizedState.tsx
+  15:34  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  19:45  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  27:34  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Administrator\Downloads\ABDM\Compressed\marketing-mailer\hooks\usePermissions.ts
+  73:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Administrator\Downloads\ABDM\Compressed\marketing-mailer\lib\permissions.server.ts
+  17:82  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+  20:86  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+Γ£û 29 problems (12 errors, 17 warnings)
+

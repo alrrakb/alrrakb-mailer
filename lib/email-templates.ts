@@ -132,7 +132,7 @@ export const DEFAULT_TEMPLATE_HTML = `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1
                      <tr>
                       <td align="left" style="padding:0;Margin:0;padding-bottom:10px;padding-top:5px">
                         <!-- INJECTED BODY -->
-                        {{EMAIL_CONTENT}}
+                        <div dir="auto">{{EMAIL_CONTENT}}</div>
                       </td>
                      </tr>
                    </table></td>
@@ -193,17 +193,15 @@ export function constructTemplateHtml(templateHtml: string | null | undefined, c
 
   const dateBlock = showDate ? `
              <tr>
-              <td align="left" style="padding:0;Margin:0;padding-right:20px;padding-left:20px;padding-top:30px">
-               <table width="100%" cellspacing="0" cellpadding="0" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-spacing:0px">
+              <td align="center" style="padding:0;Margin:0;padding-right:20px;padding-left:20px;padding-top:30px">
+               <table width="100%" cellspacing="0" cellpadding="0" role="presentation" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-spacing:0px">
                  <tr>
-                  <td valign="top" align="center" style="padding:0;Margin:0;width:560px">
-                   <table width="100%" cellspacing="0" cellpadding="0" role="presentation" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-spacing:0px">
-                     <tr>
-                      <td align="left" style="padding:0;Margin:0"><p style="Margin:0;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;letter-spacing:0;color:#666666;font-size:14px">${dateStr}</p></td>
-                     </tr>
-                   </table></td>
+                  <td align="center" style="padding:0;Margin:0">
+                   <p style="Margin:0;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;line-height:21px;letter-spacing:0;color:#666666;font-size:14px;text-align:center">${dateStr}</p>
+                  </td>
                  </tr>
-               </table></td>
+               </table>
+              </td>
              </tr>
   ` : `
              <tr>
@@ -213,9 +211,18 @@ export function constructTemplateHtml(templateHtml: string | null | undefined, c
              </tr>
   `;
 
+  // Inject dir="auto" directly into every <ul> and <ol> so Gmail aligns
+  // Arabic bullets to the right and English bullets to the left.
+  // Gmail strips CSS on wrapper elements but respects HTML attributes on the list tags themselves.
+  const processedContent = content
+    ? content
+      .replace(/<ul(?![^>]*\bdir=)/gi, '<ul dir="auto"')
+      .replace(/<ol(?![^>]*\bdir=)/gi, '<ol dir="auto"')
+    : '';
+
   // Always replace the standard tags
   return baseHtml
     .replace('{{TITLE}}', title)
     .replace('{{DATE_BLOCK}}', dateBlock)
-    .replace('{{EMAIL_CONTENT}}', content);
+    .replace('{{EMAIL_CONTENT}}', processedContent);
 }

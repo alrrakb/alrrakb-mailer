@@ -9,6 +9,7 @@ import { accountManager, StoredAccount } from '@/lib/account-manager';
 import AddAccountModal from '@/components/auth/AddAccountModal';
 import { supabase } from '@/lib/supabase';
 import { Menu } from 'lucide-react';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 export function Header({ title, onMenuClick }: { title?: string; onMenuClick?: () => void }) {
     const { user } = useAuth();
@@ -68,6 +69,9 @@ export function Header({ title, onMenuClick }: { title?: string; onMenuClick?: (
             </div>
 
             <div className="flex items-center gap-4">
+                {/* Theme Toggle */}
+                <ThemeToggle />
+
                 {/* Language Toggle */}
                 <button
                     onClick={toggleLanguage}

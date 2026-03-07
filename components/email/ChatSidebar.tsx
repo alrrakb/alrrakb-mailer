@@ -18,22 +18,20 @@ interface ChatSidebarProps {
 }
 
 export default function ChatSidebar({ isOpen, onClose, onInsertContent }: ChatSidebarProps) {
-    const { dict, language } = useLanguage();
-    const isAr = language === 'ar';
+    const { dict } = useLanguage();
 
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
-        if (messages.length === 0) {
-            setMessages([{
-                id: '1',
-                role: 'assistant',
-                content: dict.ai_chat.welcome_message
-            }]);
-        }
-    }, [dict.ai_chat.welcome_message, messages.length]);
+        // Reset welcome message every time the language/dict changes
+        setMessages([{
+            id: '1',
+            role: 'assistant',
+            content: dict.ai_chat.welcome_message
+        }]);
+    }, [dict.ai_chat.welcome_message]);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -251,7 +249,7 @@ export default function ChatSidebar({ isOpen, onClose, onInsertContent }: ChatSi
                     </div>
                     <div className="mt-2 text-center">
                         <p className="text-[10px] text-gray-400">
-                            {isAr ? 'اضغط Enter للإرسال، Shift+Enter لسطر جديد' : 'Press Enter to send, Shift+Enter for new line'}
+                            {dict.ai_chat.keyboard_hint}
                         </p>
                     </div>
                 </div>

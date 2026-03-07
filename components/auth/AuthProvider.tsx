@@ -32,27 +32,31 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
 
     useEffect(() => {
         const setData = async () => {
-            const { data: { session }, error } = await supabase.auth.getSession();
-            if (error) throw error;
+            try {
+                const { data: { session }, error } = await supabase.auth.getSession();
+                if (error) throw error;
 
-            setSession(session);
-            setUser(session?.user ?? null);
-            setIsLoading(false);
+                setSession(session);
+                setUser(session?.user ?? null);
 
-            if (session) {
-                accountManager.addAccount(session);
+                if (session) {
+                    accountManager.addAccount(session);
 
-                // Check if we need to show prompt after reload
-                if (typeof window !== 'undefined' && sessionStorage.getItem('prompt_save_after_reload') === 'true') {
-                    // Slight delay to ensure UI is ready?
-                    // Or just set state directly.
-                    const accounts = accountManager.getAccounts();
-                    const current = accounts.find(a => a.email === session.user.email);
-                    if (current && !current.isSaved) {
-                        setShowSavePrompt(true);
+                    if (typeof window !== 'undefined' && sessionStorage.getItem('prompt_save_after_reload') === 'true') {
+                        const accounts = accountManager.getAccounts();
+                        const current = accounts.find(a => a.email === session.user.email);
+                        if (current && !current.isSaved) {
+                            setShowSavePrompt(true);
+                        }
+                        sessionStorage.removeItem('prompt_save_after_reload');
                     }
-                    sessionStorage.removeItem('prompt_save_after_reload');
                 }
+            } catch (error) {
+                console.error("Auth session error:", error);
+                setSession(null);
+                setUser(null);
+            } finally {
+                setIsLoading(false);
             }
         };
 

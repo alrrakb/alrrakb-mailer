@@ -60,6 +60,15 @@ export async function POST(req: Request) {
             return NextResponse.json({ message: 'SMTP Password updated successfully' });
         }
 
+        if (action === 'update_ai_system_prompt') {
+            const { error } = await supabaseAdmin
+                .from('settings')
+                .upsert({ key: 'ai_system_prompt', value: value ?? '', updated_at: new Date().toISOString() }, { onConflict: 'key' });
+
+            if (error) throw error;
+            return NextResponse.json({ message: 'AI system prompt updated successfully' });
+        }
+
         // Fetch Settings
         if (action === 'get_settings') {
             const { data, error } = await supabaseAdmin.from('settings').select('*');

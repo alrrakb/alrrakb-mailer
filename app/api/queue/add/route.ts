@@ -1,5 +1,5 @@
-
-import { createClient } from '@/lib/supabase-server';
+import { createClient as createServerClient } from '@/lib/supabase-server';
+import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import { constructTemplateHtml } from '@/lib/email-templates';
 
@@ -12,11 +12,22 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
-        const supabase = await createClient();
+        // Verify Authentication
+        const supabaseAuth = await createServerClient();
+        const { data: { user } } = await supabaseAuth.auth.getUser();
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        // Use Admin Client to bypass RLS for inserts
+        const supabaseAdmin = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.SUPABASE_SERVICE_ROLE_KEY!
+        );
 
         let finalHtml = content;
         if (templateId) {
-            const { data: template } = await supabase.from('templates').select('html_content').eq('id', templateId).single();
+            const { data: template } = await supabaseAdmin.from('templates').select('html_content').eq('id', templateId).single();
             finalHtml = constructTemplateHtml(template?.html_content, content, subject, true);
         } else {
             // Default system template fallback
@@ -24,7 +35,7 @@ export async function POST(req: Request) {
         }
 
         // 1. Create Campaign
-        const { data: campaign, error: campError } = await supabase
+        const { data: campaign, error: campError } = await supabaseAdmin
             .from('campaigns')
             .insert({
                 subject,
@@ -33,7 +44,8 @@ export async function POST(req: Request) {
                 user_email: userEmail,
                 status: 'active',
                 total_recipients: recipients.length,
-                scheduled_at: scheduledAt || null
+                scheduled_at: scheduledAt || null,
+                user_id: user.id // Ensure campaign ownership UUID is strictly saved
             })
             .select()
             .single();
@@ -56,7 +68,7 @@ export async function POST(req: Request) {
         const CHUNK_SIZE = 100;
         for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
             const chunk = rows.slice(i, i + CHUNK_SIZE);
-            const { error } = await supabase.from('email_queue').insert(chunk);
+            const { error } = await supabaseAdmin.from('email_queue').insert(chunk);
             if (error) throw error;
         }
 

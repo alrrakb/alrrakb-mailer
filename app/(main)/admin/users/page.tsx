@@ -3,7 +3,10 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useRouter } from 'next/navigation';
-import { User, Trash2, History, Plus, AlertTriangle, X, Ban, CheckCircle, ArrowLeft } from 'lucide-react';
+import { User, Trash2, History, Plus, AlertTriangle, X, Ban, CheckCircle, ArrowLeft, ShieldCheck, Mail } from 'lucide-react';
+import UserPermissionsModal from '@/components/admin/UserPermissionsModal';
+import UserEmailsModal from '@/components/admin/UserEmailsModal';
+import { usePermissions } from '@/hooks/usePermissions';
 
 import { useLanguage } from '@/components/providers/LanguageProvider';
 
@@ -59,6 +62,8 @@ export default function AdminUsersPage() {
     const [userToSuspend, setUserToSuspend] = useState<{ id: string, action: 'suspend' | 'activate' } | null>(null);
 
     // Logs State
+    const { role } = usePermissions();
+    const isAdmin = role === 'admin' || user?.email === 'admin@rrakb.com';
     const [viewingLogsFor, setViewingLogsFor] = useState<string | null>(null); // Email
     const [userLogs, setUserLogs] = useState<UserLog[]>([]);
     const [isLoadingLogs, setIsLoadingLogs] = useState(false);
@@ -71,7 +76,11 @@ export default function AdminUsersPage() {
     const [regeneratingFor, setRegeneratingFor] = useState<AdminUser | null>(null);
     const [regeneratedToken, setRegeneratedToken] = useState<{ email: string, token: string } | null>(null);
 
-    // Toast State
+    // Permissions State
+    const [permissionsModalFor, setPermissionsModalFor] = useState<{ id: string, email: string } | null>(null);
+
+    // Emails Audit Modal State
+    const [emailsModalFor, setEmailsModalFor] = useState<{ id: string; email: string } | null>(null);
     const [toast, setToast] = useState<{ type: 'success' | 'error', message: string } | null>(null);
 
     // Toast Timer helper
@@ -81,8 +90,8 @@ export default function AdminUsersPage() {
     };
 
     useEffect(() => {
-        if (!isAuthLoading) {
-            if (!user || user.email !== 'admin@rrakb.com') {
+        if (!isAuthLoading && role) {
+            if (!user || !isAdmin) {
                 router.push('/dashboard');
                 return;
             }
@@ -105,7 +114,7 @@ export default function AdminUsersPage() {
 
             fetchUsers();
         }
-    }, [user, isAuthLoading, router, dict.admin.fetch_error]);
+    }, [user, isAuthLoading, router, dict.admin.fetch_error, isAdmin, role]);
 
     const fetchUsers = async () => {
         // Kept for manual refresh
@@ -221,7 +230,7 @@ export default function AdminUsersPage() {
         }
     };
 
-    if (isAuthLoading || (user?.email !== 'admin@rrakb.com') || isLoading) {
+    if (isAuthLoading || !isAdmin || isLoading) {
         return <div className="p-8 text-center text-gray-500">{dict.admin.loading_panel}</div>;
     }
 
@@ -328,6 +337,9 @@ export default function AdminUsersPage() {
                                                 <button onClick={() => setViewingDetailsFor(u)} className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors" title={dict.common.view}>
                                                     <User className="w-4 h-4" />
                                                 </button>
+                                                <button onClick={() => setPermissionsModalFor({ id: u.id, email: u.email })} className="p-2 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-colors" title={dict.permissions.title}>
+                                                    <ShieldCheck className="w-4 h-4" />
+                                                </button>
                                                 <button
                                                     onClick={() => setUserToSuspend({ id: u.id, action: isBanned ? 'activate' : 'suspend' })}
                                                     className={`p-2 rounded-lg transition-colors ${isBanned
@@ -344,6 +356,9 @@ export default function AdminUsersPage() {
                                         )}
                                         <button onClick={() => handleViewLogs(u.email)} className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors" title={dict.history.title}>
                                             <History className="w-4 h-4" />
+                                        </button>
+                                        <button onClick={() => setEmailsModalFor({ id: u.id, email: u.email })} className="p-2 text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors" title={dict.admin.audit_emails_tooltip}>
+                                            <Mail className="w-4 h-4" />
                                         </button>
                                         {u.email !== 'admin@rrakb.com' && (
                                             <button onClick={() => setUserToDelete(u.id)} className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title={dict.common.delete}>
@@ -397,6 +412,9 @@ export default function AdminUsersPage() {
                                                 <button onClick={() => setViewingDetailsFor(u)} className="p-2 bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400 rounded-lg" title={dict.common.view}>
                                                     <User className="w-4 h-4" />
                                                 </button>
+                                                <button onClick={() => setPermissionsModalFor({ id: u.id, email: u.email })} className="p-2 bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400 rounded-lg" title="Permissions">
+                                                    <ShieldCheck className="w-4 h-4" />
+                                                </button>
                                                 <button
                                                     onClick={() => setUserToSuspend({ id: u.id, action: isBanned ? 'activate' : 'suspend' })}
                                                     className={`p-2 rounded-lg ${isBanned
@@ -413,6 +431,9 @@ export default function AdminUsersPage() {
                                         )}
                                         <button onClick={() => handleViewLogs(u.email)} className="p-2 bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400 rounded-lg" title={dict.history.title}>
                                             <History className="w-4 h-4" />
+                                        </button>
+                                        <button onClick={() => setEmailsModalFor({ id: u.id, email: u.email })} className="p-2 bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400 rounded-lg" title="Audit Emails">
+                                            <Mail className="w-4 h-4" />
                                         </button>
                                     </div>
                                     {u.email !== 'admin@rrakb.com' && (
@@ -648,6 +669,23 @@ export default function AdminUsersPage() {
                             </button>
                         </div>
                     </div>
+                )}
+
+                {/* Permissions Modal */}
+                <UserPermissionsModal
+                    isOpen={!!permissionsModalFor}
+                    onClose={() => setPermissionsModalFor(null)}
+                    userId={permissionsModalFor?.id || null}
+                    userName={permissionsModalFor?.email}
+                />
+
+                {/* Email Audit Modal */}
+                {emailsModalFor && (
+                    <UserEmailsModal
+                        userId={emailsModalFor.id}
+                        userEmail={emailsModalFor.email}
+                        onClose={() => setEmailsModalFor(null)}
+                    />
                 )}
             </div>
         </div>

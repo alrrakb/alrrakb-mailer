@@ -19,8 +19,7 @@ export default function ProfilePage() {
     const [formData, setFormData] = useState({
         full_name: '',
         role: '',
-        phone: '',
-        ai_system_prompt: ''
+        phone: ''
     });
 
     useEffect(() => {
@@ -40,20 +39,10 @@ export default function ProfilePage() {
 
             if (error && error.code !== 'PGRST116') throw error; // PGRST116 is "Row not found"
 
-            const { data: settingsData, error: settingsError } = await supabase
-                .from('settings')
-                .select('value')
-                .eq('user_id', user?.id)
-                .eq('key', 'ai_system_prompt')
-                .maybeSingle();
-
-            if (settingsError) console.error('Error fetching settings:', settingsError);
-
             setFormData({
                 full_name: data?.full_name || '',
                 role: data?.role || '',
-                phone: data?.phone || '',
-                ai_system_prompt: settingsData?.value || ''
+                phone: data?.phone || ''
             });
 
         } catch (error) {
@@ -81,17 +70,7 @@ export default function ProfilePage() {
 
             if (error) throw error;
 
-            // Upsert the AI settings
-            const { error: settingsError } = await supabase
-                .from('settings')
-                .upsert({
-                    user_id: user?.id,
-                    key: 'ai_system_prompt',
-                    value: formData.ai_system_prompt,
-                    updated_at: new Date().toISOString()
-                }, { onConflict: 'user_id,key' });
-
-            if (settingsError) throw settingsError;
+            if (error) throw error;
 
             setMessage({ type: 'success', text: dict.profile.profile_updated });
         } catch {
@@ -194,29 +173,6 @@ export default function ProfilePage() {
                                     className={`w-full ${dir === 'rtl' ? 'pr-10 pl-4' : 'pl-10 pr-4'} py-3 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-[#79bbe0] dark:text-white outline-none transition-all`}
                                 />
                             </div>
-                        </div>
-                    </div>
-
-                    <div className="pt-8 border-t border-gray-100 dark:border-gray-700">
-                        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-                            <span className="p-1.5 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 rounded-lg">
-                                {/* @ts-ignore - Bot is from lucide, but relying on existing imports implicitly might fail. Using local Sparkles for simplicity or simply the existing SVG icons. */}
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 8V4H8" /><rect width="16" height="12" x="4" y="8" rx="2" /><path d="M2 14h2" /><path d="M20 14h2" /><path d="M15 13v2" /><path d="M9 13v2" /></svg>
-                            </span>
-                            {dict.ai_settings?.ai_settings_title || "AI Assistant Settings"}
-                        </h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-                            {dict.ai_settings?.custom_instructions_label || "Custom Instructions (Persona & Tone)"}
-                        </p>
-
-                        <div className="space-y-2">
-                            <textarea
-                                value={formData.ai_system_prompt}
-                                onChange={e => setFormData({ ...formData, ai_system_prompt: e.target.value })}
-                                placeholder={dict.ai_settings?.custom_instructions_placeholder || "E.g., Act as a luxury hotel manager..."}
-                                className={`w-full p-4 min-h-[120px] bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-indigo-500 dark:text-white outline-none transition-all resize-y`}
-                                dir="auto"
-                            />
                         </div>
                     </div>
 

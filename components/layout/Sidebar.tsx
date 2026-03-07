@@ -9,6 +9,7 @@ import { LayoutDashboard, PenSquare, History, Settings, Mail, ChevronLeft, Chevr
 import { clsx } from 'clsx';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useLanguage } from '@/components/providers/LanguageProvider';
+import { usePermissions } from '@/hooks/usePermissions';
 
 type NavItem = {
   key: string;
@@ -31,6 +32,7 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: () =>
   const { signOut, user } = useAuth();
   const { dict, dir } = useLanguage();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const { hasAccess } = usePermissions();
 
   return (
     <>
@@ -87,6 +89,10 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: () =>
 
         <div className="flex-1 flex flex-col gap-1 p-4">
           {navigation.map((item) => {
+            if (item.key !== 'dashboard' && !hasAccess(item.key)) {
+              return null;
+            }
+
             const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
             // @ts-expect-error Dictionary type is complex
             const label = dict.sidebar[item.key] || item.key;

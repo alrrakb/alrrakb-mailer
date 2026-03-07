@@ -16,7 +16,7 @@ import ImageManager from './ImageManager';
 import { ReactNodeViewRenderer } from '@tiptap/react';
 import ResizableImage from './ResizableImage';
 
-const Toolbar = ({ editor, onImageClick, onRefineClick, isHtmlMode, onToggleHtmlMode }: { editor: TiptapEditor | null, onImageClick: () => void, onRefineClick: () => void, isHtmlMode: boolean, onToggleHtmlMode: () => void }) => {
+const Toolbar = ({ editor, onImageClick, onRefineClick, isHtmlMode, onToggleHtmlMode, hideHtmlMode }: { editor: TiptapEditor | null, onImageClick: () => void, onRefineClick: () => void, isHtmlMode: boolean, onToggleHtmlMode: () => void, hideHtmlMode?: boolean }) => {
     const { dict } = useLanguage();
 
     if (!editor) {
@@ -87,20 +87,22 @@ const Toolbar = ({ editor, onImageClick, onRefineClick, isHtmlMode, onToggleHtml
 
     return (
         <div className="p-2 flex gap-1 flex-wrap rounded-t-lg items-center">
-            <button
-                type="button"
-                onClick={onToggleHtmlMode}
-                className={clsx(
-                    'p-1.5 px-3 rounded-lg transition-colors duration-200 font-semibold text-xs flex items-center gap-1.5 mr-1 border shadow-sm',
-                    isHtmlMode
-                        ? 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/40 dark:text-blue-400 dark:border-blue-800/50'
-                        : 'text-gray-600 hover:bg-gray-100 border-gray-200 dark:text-gray-400 dark:hover:bg-gray-800 dark:border-gray-700/50'
-                )}
-                title={isHtmlMode ? dict.editor.visual_view : dict.editor.source_view}
-            >
-                <Code className="w-4 h-4" />
-                HTML
-            </button>
+            {!hideHtmlMode && (
+                <button
+                    type="button"
+                    onClick={onToggleHtmlMode}
+                    className={clsx(
+                        'p-1.5 px-3 rounded-lg transition-colors duration-200 font-semibold text-xs flex items-center gap-1.5 mr-1 border shadow-sm',
+                        isHtmlMode
+                            ? 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/40 dark:text-blue-400 dark:border-blue-800/50'
+                            : 'text-gray-600 hover:bg-gray-100 border-gray-200 dark:text-gray-400 dark:hover:bg-gray-800 dark:border-gray-700/50'
+                    )}
+                    title={isHtmlMode ? dict.editor.visual_view : dict.editor.source_view}
+                >
+                    <Code className="w-4 h-4" />
+                    HTML
+                </button>
+            )}
 
             <button
                 type="button"
@@ -256,8 +258,8 @@ interface EditorProps {
     value: string;
     onChange: (html: string) => void;
     onRefine?: () => void;
-    onAskAIClick?: () => void;
     insertContentRef?: React.MutableRefObject<((html: string) => void) | null>;
+    hideHtmlMode?: boolean;
 }
 
 
@@ -334,7 +336,7 @@ const FontSize = Extension.create({
 
 import { useLanguage } from '@/components/providers/LanguageProvider';
 
-export default function Editor({ value, onChange, onRefine, onAskAIClick, insertContentRef }: EditorProps) {
+export default function Editor({ value, onChange, onRefine, insertContentRef, hideHtmlMode }: EditorProps) {
     const [isImageManagerOpen, setIsImageManagerOpen] = useState(false);
     const [isHtmlMode, setIsHtmlMode] = useState(false);
     const [htmlContent, setHtmlContent] = useState(value);
@@ -467,7 +469,7 @@ export default function Editor({ value, onChange, onRefine, onAskAIClick, insert
     };
 
     return (
-        <div className="border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm bg-white dark:bg-gray-800/40 overflow-hidden transition-colors flex flex-col h-full relative">
+        <div className="border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm bg-white dark:bg-gray-800/40 overflow-hidden transition-colors flex flex-col relative min-h-[500px]">
             <div className="shrink-0 z-20 border-b border-gray-200 dark:border-gray-700 bg-gray-50/95 dark:bg-gray-800/95 backdrop-blur-sm">
                 <Toolbar
                     editor={editor}
@@ -475,11 +477,12 @@ export default function Editor({ value, onChange, onRefine, onAskAIClick, insert
                     onRefineClick={onRefine || (() => { })}
                     isHtmlMode={isHtmlMode}
                     onToggleHtmlMode={toggleHtmlMode}
+                    hideHtmlMode={hideHtmlMode}
                 />
             </div>
 
-            <div className="flex-1 flex overflow-hidden relative">
-                <div className="flex-1 overflow-hidden bg-white dark:bg-transparent relative flex flex-col min-w-0">
+            <div className="flex-1 flex flex-col min-h-0 relative">
+                <div className="flex-1 bg-white dark:bg-transparent relative flex flex-col min-w-0 min-h-0">
                     {isHtmlMode ? (
                         <textarea
                             value={htmlContent}
@@ -490,7 +493,7 @@ export default function Editor({ value, onChange, onRefine, onAskAIClick, insert
                             dir="ltr"
                         />
                     ) : (
-                        <div className="flex-1 overflow-y-auto">
+                        <div className="flex-1 min-h-0">
                             <EditorContent editor={editor} className="[&_.ProseMirror]:min-h-[300px] [&_.ProseMirror]:w-full [&_.ProseMirror]:p-4 [&_.ProseMirror]:outline-none" />
                         </div>
                     )}

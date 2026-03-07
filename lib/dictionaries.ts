@@ -67,6 +67,21 @@ export const en = {
         selected: "selected",
         delete_selected: "Delete Selected",
         select_all: "Select All",
+        // Folder labels
+        folder_inbox: "Inbox",
+        folder_sent: "Sent",
+        folder_spam: "Spam",
+        folder_trash: "Trash",
+        folder_bounced: "Bounced",
+        // Dynamic table header
+        receiver: "Receiver",
+        // Reading pane
+        from_label: "From",
+        to_label: "To",
+        // Empty state
+        no_emails_found: "No emails found",
+        // Search
+        search_placeholder: "Search sender, subject or content...",
     },
     dashboard: {
         title: "Dashboard Overview",
@@ -144,6 +159,7 @@ export const en = {
         content_unavailable: "Content not available for this log",
         no_history: "No history found",
         search_placeholder: "Search logs...",
+        delivered: "Delivered",
     },
     profile: {
         title: "User Profile",
@@ -267,6 +283,24 @@ export const en = {
         confirm_: "Confirm ",
         confirm_action_desc: "Are you sure you want to {action} this user?",
         please_copy: "Please copy this new token and send it to the user.",
+        // User Emails Modal
+        view_emails: "View Emails",
+        audit_emails_tooltip: "Audit Emails",
+        manage_permissions_tooltip: "Manage Permissions",
+        user_emails_title: "Emails for User",
+        user_emails_search: "Search emails...",
+        deleted_by_user_badge: "Deleted by User",
+        user_emails_all: "All",
+        user_emails_no_match: "No matching emails",
+        user_emails_empty: "No emails in this folder",
+        user_emails_showing: "Showing {count} of {total} emails",
+        user_emails_close: "Close",
+        // Table headers
+        col_folder: "Folder",
+        col_from: "From",
+        col_subject: "Subject",
+        col_date: "Date",
+        col_preview: "Preview",
     },
     settings: {
         title: "Platform Settings",
@@ -301,6 +335,15 @@ export const en = {
         smtp_updated: "SMTP Password updated",
         smtp_failed: "Failed to update password",
         smtp_placeholder: "Enter unified password",
+        // Clear History
+        clear_history: "Clear Email History Logs",
+        clear_history_desc: "Permanently deletes all sent email logs from the database. Cannot be undone.",
+        clear_history_btn: "Clear History",
+        clearing_history: "Clearing...",
+        confirm_clear_history_title: "Clear Email History?",
+        confirm_clear_history_desc: "This will permanently delete all sending history logs. This action cannot be undone.",
+        clear_history_confirm_btn: "Yes, Clear Everything",
+        history_cleared: "Email history cleared successfully.",
     },
     login: {
         title: "Welcome Back",
@@ -423,7 +466,8 @@ export const en = {
         copy_success: "Copied to clipboard!",
         quota_error: "Quota exceeded. Please wait a moment and try again.",
         typing: "AI is typing...",
-        welcome_message: "Hello! I'm your AI assistant. Need help drafting an email, or looking for marketing advice?"
+        welcome_message: "Hello! I'm your AI assistant. Need help drafting an email, or looking for marketing advice?",
+        keyboard_hint: "Press Enter to send, Shift+Enter for new line"
     },
     editor: {
         source_view: "Source Code (HTML)",
@@ -450,6 +494,50 @@ export const en = {
         ai_settings_title: "AI Assistant Settings",
         custom_instructions_label: "Custom Instructions (Persona & Tone)",
         custom_instructions_placeholder: "E.g., Act as a luxury hotel manager. Always maintain a formal tone and emphasize proximity to landmarks..."
+    },
+    spam: {
+        title: "Spam Score Analysis",
+        subtitle: "Optimize your email for better deliverability",
+        status_safe: "Safe",
+        status_warning: "Warning",
+        status_spam: "Spam",
+        analysis_results: "Analysis Results",
+        got_it: "Got it",
+        check_btn: "Spam Check",
+        no_content: "No content to check",
+    },
+    permissions: {
+        title: "Manage Permissions",
+        desc: "Configure access and granular permissions for",
+        this_user: "this user",
+        save_btn: "Save Permissions",
+        saving: "Saving...",
+        saved: "Permissions saved successfully",
+        load_error: "Failed to load user permissions",
+        save_error: "Failed to save permissions",
+        inbox_page: "Inbox Page",
+        compose_page: "Compose Page",
+        queue_page: "Queue Page",
+        history_page: "History Page",
+        hotels_dir: "Hotels Directory",
+        delete_emails: "Delete Emails",
+        attach_docs: "Attach Documents",
+        html_editor: "HTML Editor Mode",
+        delete_campaigns: "Delete Campaigns",
+        send_campaigns: "Send / Play Campaigns",
+        view_only_note: "If page is enabled but actions are off, Queue is \"View Only\".",
+        delete_history: "Delete History",
+        add_hotel: "Add Hotel",
+        edit_hotel: "Edit Hotel",
+        delete_hotel: "Delete Hotel",
+    },
+    compose_extra: {
+        sending_to: "Sending to {n} recipient(s)...",
+        sending_progress: "Sending {current} / {total}",
+        undo_cancelled: "Sending cancelled. Your draft is preserved.",
+        spam_check_required: "Subject or content required for spam check",
+        size_limit_error: "Total message size exceeds 3.5MB. Please reduce attachments.",
+        queue_success: "Successfully added {count} emails to the queue.",
     }
 };
 
@@ -520,6 +608,21 @@ export const ar: Dictionary = {
         selected: "محدد",
         delete_selected: "حذف المحدد",
         select_all: "تحديد الكل",
+        // Folder labels
+        folder_inbox: "البريد الوارد",
+        folder_sent: "المرسلة",
+        folder_spam: "البريد المزعج",
+        folder_trash: "المهملات",
+        folder_bounced: "المرتجعات",
+        // Dynamic table header
+        receiver: "المستلم",
+        // Reading pane
+        from_label: "من",
+        to_label: "إلى",
+        // Empty state
+        no_emails_found: "لا توجد رسائل",
+        // Search
+        search_placeholder: "ابحث عن المرسل، الموضوع، أو المحتوى...",
     },
     dashboard: {
         title: "نظرة عامة",
@@ -597,6 +700,7 @@ export const ar: Dictionary = {
         content_unavailable: "المحتوى غير متوفر لهذا السجل",
         no_history: "لا يوجد سجلات",
         search_placeholder: "بحث في السجلات...",
+        delivered: "تم التوصيل",
     },
     profile: {
         title: "الملف الشخصي",
@@ -720,6 +824,24 @@ export const ar: Dictionary = {
         confirm_: "تأكيد ",
         confirm_action_desc: "هل أنت متأكد من {action} هذا المستخدم؟",
         please_copy: "يرجى نسخ هذا الرمز الجديد وإرساله للمستخدم.",
+        // User Emails Modal
+        view_emails: "عرض البريد",
+        audit_emails_tooltip: "مراجعة البريد",
+        manage_permissions_tooltip: "إدارة الصلاحيات",
+        user_emails_title: "بريد المستخدم",
+        user_emails_search: "ابحث في الرسائل...",
+        deleted_by_user_badge: "تم الحذف بواسطة المستخدم",
+        user_emails_all: "الكل",
+        user_emails_no_match: "لا توجد رسائل مطابقة",
+        user_emails_empty: "لا توجد رسائل في هذا المجلد",
+        user_emails_showing: "عرض {count} من {total} رسالة",
+        user_emails_close: "إغلاق",
+        // Table headers
+        col_folder: "المجلد",
+        col_from: "المرسل",
+        col_subject: "الموضوع",
+        col_date: "التاريخ",
+        col_preview: "معاينة",
     },
     settings: {
         title: "إعدادات المنصة",
@@ -754,6 +876,15 @@ export const ar: Dictionary = {
         smtp_updated: "تم تحديث كلمة مرور SMTP",
         smtp_failed: "فشل تحديث كلمة المرور",
         smtp_placeholder: "أدخل كلمة المرور الموحدة",
+        // Clear History
+        clear_history: "مسح سجل البريد",
+        clear_history_desc: "يحذف جميع سجلات الإرسال من قاعدة البيانات نهائياً. لا يمكن التراجع عن هذا.",
+        clear_history_btn: "مسح السجل",
+        clearing_history: "جاري المسح...",
+        confirm_clear_history_title: "مسح سجل البريد؟",
+        confirm_clear_history_desc: "لا يمكن التراجع عن هذا الإجراء وسيتم حذف جميع سجلات الإرسال نهائياً.",
+        clear_history_confirm_btn: "نعم، امسح كل شيء",
+        history_cleared: "تم مسح سجل البريد بنجاح.",
     },
     login: {
         title: "مرحباً بعودتك",
@@ -876,7 +1007,8 @@ export const ar: Dictionary = {
         copy_success: "تم النسخ بنجاح!",
         quota_error: "عذراً، وصلنا للحد الأقصى. يرجى الانتظار ثوانٍ والمحاولة مجدداً.",
         typing: "المساعد يكتب...",
-        welcome_message: "مرحباً! أنا المساعد الذكي. كيف يمكنني مساعدتك في صياغة رسالتك؟"
+        welcome_message: "مرحباً! أنا المساعد الذكي. كيف يمكنني مساعدتك في صياغة رسالتك؟",
+        keyboard_hint: "اضغط Enter للإرسال، Shift+Enter لسطر جديد"
     },
     editor: {
         source_view: "عرض الكود (HTML)",
@@ -903,5 +1035,49 @@ export const ar: Dictionary = {
         ai_settings_title: "إعدادات المساعد الذكي",
         custom_instructions_label: "تعليمات مخصصة (أسلوب ونبرة الرد)",
         custom_instructions_placeholder: "مثال: تصرف كمدير فندق 5 نجوم. حافظ دائماً على نبرة رسمية وفخمة وركز على قربنا من المعالم..."
+    },
+    spam: {
+        title: "تحليل درجة البريد المزعج",
+        subtitle: "حسّن بريدك الإلكتروني لتحسين إمكانية التسليم",
+        status_safe: "آمن",
+        status_warning: "تحذير",
+        status_spam: "بريد مزعج",
+        analysis_results: "نتائج التحليل",
+        got_it: "حسناً",
+        check_btn: "فحص البريد المزعج",
+        no_content: "لا يوجد محتوى لفحصه",
+    },
+    permissions: {
+        title: "إدارة الصلاحيات",
+        desc: "تكوين حقوق الوصول والصلاحيات التفصيلية لـ",
+        this_user: "هذا المستخدم",
+        save_btn: "حفظ الصلاحيات",
+        saving: "جاري الحفظ...",
+        saved: "تم حفظ الصلاحيات بنجاح",
+        load_error: "فشل تحميل صلاحيات المستخدم",
+        save_error: "فشل حفظ الصلاحيات",
+        inbox_page: "صفحة البريد الوارد",
+        compose_page: "صفحة الإنشاء",
+        queue_page: "صفحة الطابور",
+        history_page: "صفحة السجل",
+        hotels_dir: "دليل الفنادق",
+        delete_emails: "حذف الرسائل",
+        attach_docs: "إرفاق المستندات",
+        html_editor: "وضع محرر HTML",
+        delete_campaigns: "حذف الحملات",
+        send_campaigns: "إرسال / تشغيل الحملات",
+        view_only_note: "إذا كانت الصفحة مفعّلة والإجراءات معطّلة، فالطابور بوضع \"عرض فقط\".",
+        delete_history: "حذف السجل",
+        add_hotel: "إضافة فندق",
+        edit_hotel: "تعديل فندق",
+        delete_hotel: "حذف فندق",
+    },
+    compose_extra: {
+        sending_to: "جاري الإرسال إلى {n} مستلم...",
+        sending_progress: "جاري إرسال {current} / {total}",
+        undo_cancelled: "تم إلغاء الإرسال. تم الحفظ كمسودة.",
+        spam_check_required: "الموضوع أو المحتوى مطلوب للتحقق من البريد المزعج",
+        size_limit_error: "حجم الرسالة يتجاوز 3.5 ميجابايت. يرجى تقليل المرفقات.",
+        queue_success: "تمت إضافة {count} بريد إلى قائمة الانتظار بنجاح.",
     }
 };

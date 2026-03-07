@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import { Mail, CheckCircle, XCircle, Clock, Calendar, Search, ArrowLeft, RotateCw } from 'lucide-react';
 import Link from 'next/link';
 
@@ -11,13 +10,14 @@ type SentLog = {
     sent_at: string;
     recipient: string;
     subject: string;
-    status: 'sent' | 'failed';
+    status: 'sent' | 'delivered' | 'failed';
     error_message?: string;
     content?: string;
     sender_email?: string;
 };
-
 import { useLanguage } from '@/components/providers/LanguageProvider';
+import { usePermissions } from '@/hooks/usePermissions';
+import { UnauthorizedState } from '@/components/shared/UnauthorizedState';
 
 export default function HistoryPage() {
     const { dict, dir } = useLanguage();
@@ -34,29 +34,10 @@ export default function HistoryPage() {
             setIsLoading(true);
             const currentPage = reset ? 0 : page;
 
-            // Get User Session
-            const { data: { session } } = await supabase.auth.getSession();
-            const userEmail = session?.user?.email;
-            const isAdmin = userEmail === 'admin@rrakb.com';
+            const res = await fetch(`/api/history?page=${currentPage}&per_page=${PER_PAGE}&search=${encodeURIComponent(searchQuery)}`);
+            if (!res.ok) throw new Error('Failed to fetch history');
 
-            let query = supabase
-                .from('sent_logs')
-                .select('*')
-                .order('sent_at', { ascending: false })
-                .range(currentPage * PER_PAGE, (currentPage + 1) * PER_PAGE - 1);
-
-            // Filter by user if not admin
-            if (!isAdmin && userEmail) {
-                query = query.eq('sender_email', userEmail);
-            }
-
-            if (searchQuery) {
-                query = query.or(`subject.ilike.%${searchQuery}%,recipient.ilike.%${searchQuery}%`);
-            }
-
-            const { data, error } = await query;
-
-            if (error) throw error;
+            const { data } = await res.json();
 
             if (reset) {
                 setLogs(data || []);
@@ -87,6 +68,12 @@ export default function HistoryPage() {
         return () => clearTimeout(timer);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [searchQuery]);
+
+    const { hasAccess } = usePermissions();
+
+    if (!hasAccess('history')) {
+        return <UnauthorizedState />;
+    }
 
     return (
         <div className="max-w-6xl mx-auto py-8 px-4">
@@ -139,10 +126,10 @@ export default function HistoryPage() {
                                 >
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-2">
-                                            {log.status === 'sent' ? (
+                                            {(log.status === 'sent' || log.status === 'delivered') ? (
                                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400 border border-green-100 dark:border-green-800">
                                                     <CheckCircle className="w-3.5 h-3.5" />
-                                                    {dict.history.sent}
+                                                    {log.status === 'delivered' ? dict.history.delivered : dict.history.sent}
                                                 </span>
                                             ) : (
                                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400 border border-red-100 dark:border-red-800" title={log.error_message}>
@@ -211,12 +198,12 @@ export default function HistoryPage() {
                                         <p className="text-xs text-gray-500 dark:text-gray-400">{log.recipient}</p>
                                     </div>
                                 </div>
-                                <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border ${log.status === 'sent'
+                                <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border ${(log.status === 'sent' || log.status === 'delivered')
                                     ? 'bg-green-50 text-green-700 border-green-100 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800'
                                     : 'bg-red-50 text-red-700 border-red-100 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800'
                                     }`}>
-                                    {log.status === 'sent' ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
-                                    {log.status === 'sent' ? dict.history.sent : dict.history.failed}
+                                    {(log.status === 'sent' || log.status === 'delivered') ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                                    {log.status === 'delivered' ? dict.history.delivered : (log.status === 'sent' ? dict.history.sent : dict.history.failed)}
                                 </span>
                             </div>
 
@@ -263,11 +250,11 @@ export default function HistoryPage() {
                         {/* Header */}
                         <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/50">
                             <div className="flex items-center gap-3">
-                                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${selectedLog.status === 'sent'
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${(selectedLog.status === 'sent' || selectedLog.status === 'delivered')
                                     ? 'bg-green-100 text-green-600 dark:bg-green-900/30'
                                     : 'bg-red-100 text-red-600 dark:bg-red-900/30'
                                     }`}>
-                                    {selectedLog.status === 'sent' ? <CheckCircle className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
+                                    {(selectedLog.status === 'sent' || selectedLog.status === 'delivered') ? <CheckCircle className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
                                 </div>
                                 <div>
                                     <h3 className="text-lg font-bold text-gray-900 dark:text-white line-clamp-1">

@@ -60,7 +60,7 @@ export default function EmailSelectionModal({ isOpen, onClose, onSelect }: Email
             setHotels(data || []);
         } catch (error: unknown) {
             console.error('Error fetching hotels in modal:', error instanceof Error ? error.message : error);
-            try { console.error('Full modal error:', JSON.stringify(error)); } catch (_e) { }
+            try { console.error('Full modal error:', JSON.stringify(error)); } catch { }
             toast.error("Failed to load hotels");
         } finally {
             setLoading(false);

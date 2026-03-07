@@ -9,6 +9,8 @@ import HotelDetailsModal from '@/components/hotels/HotelDetailsModal';
 import AddHotelModal from '@/components/hotels/AddHotelModal';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import HotelImporter from '@/components/hotels/HotelImporter';
+import { usePermissions } from '@/hooks/usePermissions';
+import { UnauthorizedState } from '@/components/shared/UnauthorizedState';
 
 interface Hotel {
     id: string;
@@ -33,6 +35,7 @@ interface Hotel {
 
 export default function HotelsPage() {
     const { dict, language } = useLanguage();
+    const { hasAccess } = usePermissions();
     const [hotels, setHotels] = useState<Hotel[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
@@ -81,7 +84,7 @@ export default function HotelsPage() {
         } catch (error: unknown) {
             console.error('Error fetching hotels:', error instanceof Error ? error.message : error);
             // also log stringified if it's an object
-            try { console.error('Full error dump:', JSON.stringify(error)); } catch (_e) { }
+            try { console.error('Full error dump:', JSON.stringify(error)); } catch { }
         } finally {
             setLoading(false);
         }
@@ -194,6 +197,10 @@ export default function HotelsPage() {
         }
     };
 
+    if (!hasAccess('hotels')) {
+        return <UnauthorizedState />;
+    }
+
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-950 pb-20" onClick={() => {
             setShowCityFilter(false);
@@ -217,7 +224,7 @@ export default function HotelsPage() {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-3">
-                        {selectedHotels.size > 0 && (
+                        {hasAccess('hotels_delete') && selectedHotels.size > 0 && (
                             <button
                                 onClick={() => setHotelToDelete({ id: 'bulk', name_en: 'Selected Hotels' })} // Dummy object to trigger modal
                                 className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-all font-bold shadow-lg shadow-red-500/20 animate-in fade-in zoom-in-95"
@@ -241,17 +248,19 @@ export default function HotelsPage() {
                         >
                             <CheckSquare className="w-5 h-5" />
                         </button>
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setEditingHotel(null);
-                                setIsAddModalOpen(true);
-                            }}
-                            className="btn-primary flex items-center gap-2 px-5 py-2.5 bg-[#39285e] text-white rounded-xl hover:bg-[#2d1f4b] transition-all shadow-lg shadow-[#39285e]/20"
-                        >
-                            <Plus className="w-5 h-5" />
-                            <span className="font-bold">{dict.hotels.add_hotel}</span>
-                        </button>
+                        {hasAccess('hotels_add') && (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingHotel(null);
+                                    setIsAddModalOpen(true);
+                                }}
+                                className="btn-primary flex items-center gap-2 px-5 py-2.5 bg-[#39285e] text-white rounded-xl hover:bg-[#2d1f4b] transition-all shadow-lg shadow-[#39285e]/20"
+                            >
+                                <Plus className="w-5 h-5" />
+                                <span className="font-bold">{dict.hotels.add_hotel}</span>
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -407,23 +416,27 @@ export default function HotelsPage() {
 
                                 {/* Edit Button */}
                                 <div className="absolute top-4 right-4 rtl:left-4 rtl:right-auto z-10 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button
-                                        onClick={(e) => handleEdit(e, hotel)}
-                                        className="p-2 bg-white/90 dark:bg-gray-800/90 rounded-full shadow-sm hover:bg-[#39285e] hover:text-white transition-colors"
-                                        title={dict.hotels.edit_hotel}
-                                    >
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
-                                            <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
-                                        </svg>
-                                    </button>
+                                    {hasAccess('hotels_edit') && (
+                                        <button
+                                            onClick={(e) => handleEdit(e, hotel)}
+                                            className="p-2 bg-white/90 dark:bg-gray-800/90 rounded-full shadow-sm hover:bg-[#39285e] hover:text-white transition-colors"
+                                            title={dict.hotels.edit_hotel}
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                                                <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+                                            </svg>
+                                        </button>
+                                    )}
                                     {/* Only show individual delete if not in bulk mode ?? Or keep it */}
-                                    <button
-                                        onClick={(e) => handleDeleteClick(e, hotel)}
-                                        className="p-2 bg-white/90 dark:bg-gray-800/90 rounded-full shadow-sm hover:bg-red-500 hover:text-white transition-colors text-red-500"
-                                        title={dict.hotels?.delete_hotel || "Delete Hotel"}
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
+                                    {hasAccess('hotels_delete') && (
+                                        <button
+                                            onClick={(e) => handleDeleteClick(e, hotel)}
+                                            className="p-2 bg-white/90 dark:bg-gray-800/90 rounded-full shadow-sm hover:bg-red-500 hover:text-white transition-colors text-red-500"
+                                            title={dict.hotels?.delete_hotel || "Delete Hotel"}
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    )}
                                 </div>
                                 {/* Card content */}
                                 <div className="p-6 flex-1">
@@ -491,7 +504,7 @@ export default function HotelsPage() {
                             setIsAddModalOpen(false);
                             setEditingHotel(null);
                         }}
-                        hotelToEdit={(editingHotel as any) || undefined} // Pass the hotel to edit
+                        hotelToEdit={(editingHotel as Record<string, unknown>) || undefined} // Pass the hotel to edit
                     />
                 )}
 

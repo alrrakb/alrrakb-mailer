@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Settings, Trash2, Power, Lock, Save, RotateCcw, Shield, CheckCircle, AlertTriangle, ArrowLeft } from 'lucide-react';
 
 import { useLanguage } from '@/components/providers/LanguageProvider';
+import { usePermissions } from '@/hooks/usePermissions';
 
 export default function AdminSettingsPage() {
     const { user, isLoading: isAuthLoading } = useAuth();
@@ -17,9 +18,15 @@ export default function AdminSettingsPage() {
     const [smtpPassword, setSmtpPassword] = useState('');
     const [isSavingSmtp, setIsSavingSmtp] = useState(false);
 
+    // AI Assistant state
+    const [aiSystemPrompt, setAiSystemPrompt] = useState('');
+    const [isSavingAiPrompt, setIsSavingAiPrompt] = useState(false);
+
     // Modals
     const [confirmSuspend, setConfirmSuspend] = useState<boolean | null>(null); // true = suspend all, false = activate all
     const [confirmClearDrafts, setConfirmClearDrafts] = useState(false);
+    const [confirmClearHistory, setConfirmClearHistory] = useState(false);
+    const [isClearingHistory, setIsClearingHistory] = useState(false);
 
     // Toast
     const [toast, setToast] = useState<{ type: 'success' | 'error', message: string } | null>(null);
@@ -28,15 +35,33 @@ export default function AdminSettingsPage() {
         setTimeout(() => setToast(null), 3000);
     };
 
+    const { role } = usePermissions();
+    const isAdmin = role === 'admin' || user?.email === 'admin@rrakb.com';
+
+    const handleClearHistory = async () => {
+        try {
+            setIsClearingHistory(true);
+            const res = await fetch('/api/admin/history/clear', { method: 'DELETE' });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to clear history');
+            setConfirmClearHistory(false);
+            showToast('success', `${dict.settings.history_cleared} (${data.deleted ?? 0} records removed).`);
+        } catch (err: unknown) {
+            showToast('error', err instanceof Error ? err.message : 'Failed to clear history');
+        } finally {
+            setIsClearingHistory(false);
+        }
+    };
+
     useEffect(() => {
-        if (!isAuthLoading) {
-            if (!user || user.email !== 'admin@rrakb.com') {
+        if (!isAuthLoading && role) {
+            if (!user || !isAdmin) {
                 router.push('/dashboard');
                 return;
             }
             fetchSettings();
         }
-    }, [user, isAuthLoading, router]);
+    }, [user, isAuthLoading, router, role, isAdmin]);
 
     const fetchSettings = async () => {
         try {
@@ -47,6 +72,9 @@ export default function AdminSettingsPage() {
             });
             const data = await res.json();
             if (data.smtp_password) setSmtpPassword(data.smtp_password);
+
+            // Note: Since this is now global, we fetch the generic 'ai_system_prompt' key.
+            if (data.ai_system_prompt) setAiSystemPrompt(data.ai_system_prompt);
         } catch (error) {
             console.error('Failed to fetch settings', error);
         } finally {
@@ -104,7 +132,25 @@ export default function AdminSettingsPage() {
         }
     };
 
-    if (isAuthLoading || (user?.email !== 'admin@rrakb.com') || isLoading) return <div className="p-8 text-center text-gray-500">{dict.settings.loading_settings}</div>;
+    const handleUpdateAiPrompt = async () => {
+        setIsSavingAiPrompt(true);
+        try {
+            const res = await fetch('/api/admin/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'update_ai_system_prompt', value: aiSystemPrompt })
+            });
+            if (!res.ok) throw new Error('Failed');
+            showToast('success', dict.ai_settings?.saved_success || "AI settings saved successfully");
+        } catch (error) {
+            console.error(error);
+            showToast('error', dict.settings.operation_failed);
+        } finally {
+            setIsSavingAiPrompt(false);
+        }
+    };
+
+    if (isAuthLoading || !isAdmin || isLoading) return <div className="p-8 text-center text-gray-500">{dict.settings.loading_settings}</div>;
 
     return (
         <div className="max-w-4xl mx-auto py-8 px-4">
@@ -174,18 +220,42 @@ export default function AdminSettingsPage() {
                         <Trash2 className="w-5 h-5 text-gray-600 dark:text-gray-400" />
                         <h2 className="font-semibold text-gray-900 dark:text-white">{dict.settings.maintenance}</h2>
                     </div>
-                    <div className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <div>
-                            <h3 className="font-medium text-gray-900 dark:text-white">{dict.settings.clear_cache}</h3>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">{dict.settings.clear_cache_desc}</p>
+                    <div className="p-6 flex flex-col gap-0">
+                        {/* Row 1: Clear Drafts Cache */}
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div>
+                                <h3 className="font-medium text-gray-900 dark:text-white">{dict.settings.clear_cache}</h3>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">{dict.settings.clear_cache_desc}</p>
+                            </div>
+                            <button
+                                onClick={() => setConfirmClearDrafts(true)}
+                                className="w-full md:w-auto border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 px-4 py-2 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                                {dict.settings.clear_cache_btn}
+                            </button>
                         </div>
-                        <button
-                            onClick={() => setConfirmClearDrafts(true)}
-                            className="w-full md:w-auto border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 px-4 py-2 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors"
-                        >
-                            <Trash2 className="w-4 h-4" />
-                            {dict.settings.clear_cache_btn}
-                        </button>
+
+                        {/* Divider */}
+                        <div className="border-t border-gray-100 dark:border-gray-700 my-5" />
+
+                        {/* Row 2: Clear Email History */}
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div>
+                                <h3 className="font-medium text-gray-900 dark:text-white">{dict.settings.clear_history}</h3>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">
+                                    {dict.settings.clear_history_desc}
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setConfirmClearHistory(true)}
+                                disabled={isClearingHistory}
+                                className="w-full md:w-auto border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                                {isClearingHistory ? dict.settings.clearing_history : dict.settings.clear_history_btn}
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -218,7 +288,39 @@ export default function AdminSettingsPage() {
                     </div>
                 </div>
 
-            </div>
+                {/* AI Assistant Settings */}
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+                    <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex items-center gap-2 bg-gray-50 dark:bg-gray-800/50">
+                        <span className="p-1.5 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 rounded-lg">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 8V4H8" /><rect width="16" height="12" x="4" y="8" rx="2" /><path d="M2 14h2" /><path d="M20 14h2" /><path d="M15 13v2" /><path d="M9 13v2" /></svg>
+                        </span>
+                        <h2 className="font-semibold text-gray-900 dark:text-white">{dict.ai_settings?.ai_settings_title || "AI Assistant Settings"}</h2>
+                    </div>
+                    <div className="p-6">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            {dict.ai_settings?.custom_instructions_label || "Global Custom Instructions (Persona & Tone)"}
+                        </label>
+                        <textarea
+                            value={aiSystemPrompt}
+                            onChange={(e) => setAiSystemPrompt(e.target.value)}
+                            placeholder={dict.ai_settings?.custom_instructions_placeholder || "E.g., Act as a luxury hotel manager..."}
+                            className="w-full p-4 min-h-[120px] bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500 dark:text-white outline-none transition-all resize-y mb-4"
+                            dir="auto"
+                        />
+                        <div className="flex justify-end">
+                            <button
+                                onClick={handleUpdateAiPrompt}
+                                disabled={isSavingAiPrompt}
+                                className="w-full md:w-auto bg-[#39285e] hover:bg-[#2d1f4b] text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 shadow-lg shadow-[#39285e]/20 disabled:opacity-70 disabled:cursor-not-allowed"
+                            >
+                                <Save className="w-4 h-4" />
+                                {isSavingAiPrompt ? dict.settings.saving : dict.settings.update}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>{/* end main content grid */}
 
             {/* Confirmation Modal: Suspend */}
             {(confirmSuspend !== null) && (
@@ -266,6 +368,38 @@ export default function AdminSettingsPage() {
                                 className="px-4 py-2 rounded-lg bg-orange-600 text-white hover:bg-orange-700 transition-colors font-medium shadow-lg"
                             >
                                 {dict.settings.delete_everything}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Confirmation Modal: Clear Email History */}
+            {confirmClearHistory && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in">
+                    <div className="bg-white dark:bg-gray-900 w-full max-w-sm rounded-xl p-6 shadow-2xl border border-gray-200 dark:border-gray-800">
+                        <div className="flex items-center gap-3 text-red-600 mb-4">
+                            <AlertTriangle className="w-6 h-6" />
+                            <h3 className="text-lg font-bold">{dict.settings.confirm_clear_history_title}</h3>
+                        </div>
+                        <p className="text-gray-600 dark:text-gray-300 mb-6">
+                            {dict.settings.confirm_clear_history_desc}
+                        </p>
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={() => setConfirmClearHistory(false)}
+                                disabled={isClearingHistory}
+                                className="px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 transition-colors"
+                            >
+                                {dict.common.cancel}
+                            </button>
+                            <button
+                                onClick={handleClearHistory}
+                                disabled={isClearingHistory}
+                                className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-60 transition-colors font-medium shadow-lg flex items-center gap-2"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                                {isClearingHistory ? dict.settings.clearing_history : dict.settings.clear_history_confirm_btn}
                             </button>
                         </div>
                     </div>

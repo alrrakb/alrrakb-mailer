@@ -47,35 +47,38 @@ export async function GET() {
         // Pre-fetch campaign data to minimize queries inside loop
         const { data: campaignsData } = await supabase
             .from('campaigns')
-            .select('id, subject, body_html, attachments, user_email')
+            .select('id, subject, body_html, attachments, user_email, user_id')
             .in('id', uniqueCampaignIds);
 
-        const campaignMap = new Map(campaignsData?.map((c: { id: string; subject: string; body_html: string }) => [c.id, c]) || []);
+        const campaignMap = new Map(campaignsData?.map((c: { id: string; subject: string; body_html: string; user_email: string; user_id: string }) => [c.id, c]) || []);
 
-        // Security Fix: Server-side determined sender to prevent spoofing
-        const actualSenderEmail = process.env.SMTP_FROM_EMAIL || 'newsletter@rrakb.com';
-        const senderName = "Tala'ea Al-Rakeb";
+        // Fetch actual sender name dynamically from .env or fallback
+        const senderName = process.env.SMTP_SENDER_NAME || "TALAE ALRRAKB";
 
         const validEmails = [];
         for (const email of emails) {
-            const campaign = campaignMap.get(email.campaign_id) || { subject: 'Update', body_html: '' };
+            const campaign = campaignMap.get(email.campaign_id) || { subject: 'Update', body_html: '', user_email: '' };
             const subject = email.subject || campaign.subject;
             const body_html = email.body_html || campaign.body_html;
+
+            // Resolve dynamic sender email from campaign's author
+            const dynamicSenderEmail = email.user_email || campaign.user_email || process.env.SMTP_FROM_EMAIL || 'newsletter@rrakb.com';
 
             validEmails.push({
                 ...email,
                 resolved_subject: subject,
-                resolved_body: body_html
+                resolved_body: body_html,
+                resolved_sender: dynamicSenderEmail
             });
         }
 
         // Map into Resend API format
         const resendPayload = validEmails.map(email => ({
-            from: `${senderName} <${actualSenderEmail}>`, // Verified Sender
+            from: `${senderName} <${email.resolved_sender}>`, // Verified Dynamic Sender
             to: email.recipient_email,
             subject: email.resolved_subject,
             html: email.resolved_body,
-            reply_to: actualSenderEmail
+            reply_to: email.resolved_sender
         }));
 
         // 4. Send via Resend Batch API
@@ -104,19 +107,70 @@ export async function GET() {
 
             for (let i = 0; i < validEmails.length; i++) {
                 const email = validEmails[i];
+                const logUserId = campaignMap.get(email.campaign_id)?.user_id || null;
                 logsToInsert.push({
                     recipient: email.recipient_email,
                     subject: email.resolved_subject,
                     content: email.resolved_body,
                     status: 'sent',
-                    sender_email: actualSenderEmail,
-                    sent_at: new Date().toISOString()
+                    sender_email: email.resolved_sender,
+                    sent_at: new Date().toISOString(),
+                    // Include user_id so the Dashboard's per-user activity filter works
+                    ...(logUserId ? { user_id: logUserId } : {})
                 });
-                results.push({ id: email.id, status: 'success', sender: actualSenderEmail });
+                results.push({ id: email.id, status: 'success', sender: email.resolved_sender });
             }
 
             if (logsToInsert.length > 0) {
                 await supabase.from('sent_logs').insert(logsToInsert);
+            }
+
+            // --- INBOX INTEGRATION ---
+            // Save a copy to the user's "Sent" folder so it appears in the main UI
+
+            // Pre-fetch all users to gracefully recover UUIDs for older campaigns missing 'user_id'
+            const { data: adminUsers } = await supabase.auth.admin.listUsers();
+            const emailToIdMap = new Map();
+            adminUsers?.users?.forEach(u => {
+                if (u.email) emailToIdMap.set(u.email.toLowerCase(), u.id)
+            });
+
+            const inboxEmailsToInsert = [];
+
+            for (const email of validEmails) {
+                // Try campaign's ID first, fallback to resolving the sender's string email to a real UUID
+                const campaignUserId = campaignMap.get(email.campaign_id)?.user_id ||
+                    emailToIdMap.get(email.resolved_sender.toLowerCase());
+
+                if (!campaignUserId) {
+                    console.warn(`⚠️ CRITICAL: Missing user_id for campaign ${email.campaign_id}. Skipping Sent folder insertion for ${email.recipient_email} to prevent orphaned rows.`);
+                    continue;
+                }
+
+                inboxEmailsToInsert.push({
+                    user_id: campaignUserId, // Link to owner (MUST be UUID)
+                    sender: email.resolved_sender, // Matches 'inbox' schema (Dynamic Sender)
+                    recipient: email.recipient_email, // Displayed in "Sent" folder UI
+                    subject: email.resolved_subject,
+                    content: email.resolved_body,
+                    folder: 'sent',
+                    is_read: true, // Matches 'inbox' schema (not 'read')
+                    message_id: `camp-${email.id}-${Date.now()}`, // Required by 'inbox' schema
+                    received_at: new Date().toISOString() // 'inbox' schema uses received_at for sorting
+                });
+            }
+
+            if (inboxEmailsToInsert.length > 0) {
+                console.log('--- ATTEMPTING TO INSERT INTO SENT FOLDER ---');
+                console.log('Payload Sample:', JSON.stringify(inboxEmailsToInsert[0], null, 2));
+
+                const { error: inboxError } = await supabase.from('inbox').insert(inboxEmailsToInsert);
+
+                if (inboxError) {
+                    console.error('❌ CRITICAL DB INSERT ERROR (Sent Folder):', inboxError);
+                } else {
+                    console.log(`✅ Successfully added ${inboxEmailsToInsert.length} emails to Sent folder.`);
+                }
             }
         }
 

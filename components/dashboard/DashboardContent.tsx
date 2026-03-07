@@ -82,12 +82,12 @@ export default function DashboardContent({ sentCount, failedCount, recentLogs }:
                                             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{log.recipient}</p>
                                         </div>
                                     </div>
-                                    <span className={`shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border shadow-sm ${log.status === 'sent'
+                                    <span className={`shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border shadow-sm ${(log.status === 'sent' || log.status === 'delivered')
                                         ? 'bg-green-50 text-green-700 border-green-100 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800'
                                         : 'bg-red-50 text-red-700 border-red-100 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800'
                                         }`}>
-                                        {log.status === 'sent' ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
-                                        {log.status === 'sent' ? 'Sent' : 'Failed'}
+                                        {(log.status === 'sent' || log.status === 'delivered') ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                                        {(log.status === 'sent' || log.status === 'delivered') ? 'Sent' : 'Failed'}
                                     </span>
                                 </div>
                                 <div className="flex items-center justify-between text-xs text-gray-400 pl-[3.25rem]">

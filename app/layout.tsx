@@ -4,6 +4,8 @@ import "./globals.css";
 
 import AuthProvider from "@/components/auth/AuthProvider";
 import LanguageProvider from "@/components/providers/LanguageProvider";
+import { ThemeProvider } from "@/components/providers/ThemeProvider";
+import RTLToaster from "@/components/providers/RTLToaster";
 
 export const metadata: Metadata = {
   title: "ALRRAKB Mailer",
@@ -17,22 +19,26 @@ export const metadata: Metadata = {
   },
 };
 
-import { Toaster } from 'sonner';
-
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className="antialiased font-sans">
-        <LanguageProvider>
-          <AuthProvider>
-            {children}
-            <Toaster position="top-center" richColors />
-          </AuthProvider>
-        </LanguageProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+        >
+          <LanguageProvider>
+            <AuthProvider>
+              {children}
+              <RTLToaster />
+            </AuthProvider>
+          </LanguageProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

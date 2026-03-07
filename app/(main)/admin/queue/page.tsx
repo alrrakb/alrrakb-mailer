@@ -1,11 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { RefreshCw, Play, Pause, Trash2, AlertCircle, CheckCircle, Clock, Plus, X, Eye, Loader2 } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { RefreshCw, Play, Pause, Trash2, AlertCircle, CheckCircle, Clock, Plus, X, Eye } from 'lucide-react';
 import { toast } from 'sonner';
-import ComposeWindow from '@/components/email/ComposeWindow';
 import { useLanguage } from '@/components/providers/LanguageProvider';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { usePermissions } from '@/hooks/usePermissions';
+import { useRouter } from 'next/navigation';
+import { UnauthorizedState } from '@/components/shared/UnauthorizedState';
+import ComposeWindow from '@/components/email/ComposeWindow';
 
 interface CampaignRecord {
     id: string;
@@ -42,10 +45,13 @@ interface GlobalStats {
 
 export default function QueueDashboard() {
     const { dict } = useLanguage();
-    const { user } = useAuth();
+    const { user, isLoading: isAuthLoading } = useAuth();
+    const { hasAccess, role } = usePermissions();
+    const router = useRouter();
     const [stats, setStats] = useState<GlobalStats | null>(null); // Global stats
     const [campaigns, setCampaigns] = useState<CampaignRecord[]>([]); // Campaign List
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     const [refreshing, setRefreshing] = useState(false);
 
@@ -70,40 +76,47 @@ export default function QueueDashboard() {
     const [details, setDetails] = useState<QueueDetailRecord[]>([]);
     const [loadingDetails, setLoadingDetails] = useState(false);
 
-    const fetchCampaigns = async (query = '', pageToLoad = 1) => {
-        try {
-            // 1. Fetch Global Stats
-            const resStats = await fetch('/api/queue/stats');
-            const dataStats = await resStats.json();
-            if (resStats.ok) {
-                setStats(dataStats);
-            }
-
-            // 2. Fetch Campaigns
-            const resCamp = await fetch(`/api/queue/campaigns?query=${query}&page=${pageToLoad}`);
-            const dataCamp = await resCamp.json();
-
-            if (Array.isArray(dataCamp)) {
-                setCampaigns(dataCamp);
-            } else {
-                console.error("Invalid campaigns data:", dataCamp);
-                setCampaigns([]);
-            }
-
-        } catch (error) {
-            console.error('Failed to fetch data', error);
-            setCampaigns([]);
-        } finally {
-            setLoading(false);
-        }
-    };
-
     // Helper to trigger the background processor
-    const triggerProcessor = async () => {
+    const triggerProcessor = useCallback(async () => {
         try {
             fetch('/api/queue/process', { method: 'GET' }); // Fire and forget
         } catch (e) { console.error(e); }
-    };
+    }, []);
+
+    // Standalone fetch logic that can be reused by refresh/action
+    const fetchCampaigns = useCallback(async (query = '', pageToLoad = 1, showSpinner = false) => {
+        try {
+            if (showSpinner) setLoading(true);
+            setError(null);
+
+            const [campaignsRes, statsRes] = await Promise.all([
+                fetch(`/api/queue/campaigns?query=${query}&page=${pageToLoad}`),
+                fetch('/api/queue/stats')
+            ]);
+
+            if (!campaignsRes.ok) throw new Error(`Campaigns API failed: ${campaignsRes.statusText}`);
+            if (!statsRes.ok) throw new Error(`Stats API failed: ${statsRes.statusText}`);
+
+            const campaignsData = await campaignsRes.json();
+            const statsData = await statsRes.json();
+
+            const parsedCampaigns = Array.isArray(campaignsData) ? campaignsData : (campaignsData.campaigns || []);
+            setCampaigns(parsedCampaigns);
+            setStats(statsData || null);
+
+            // Auto-process triggers
+            const hasActiveWork = parsedCampaigns.some((c: CampaignRecord) => c.status === 'active' && c.stats.pending > 0);
+            if (hasActiveWork) {
+                triggerProcessor();
+            }
+
+        } catch (err: unknown) {
+            console.error("Queue Fetch Error:", err);
+            setError(err instanceof Error ? err.message : 'An unknown error occurred');
+        } finally {
+            if (showSpinner) setLoading(false);
+        }
+    }, [triggerProcessor]);
 
     const confirmAction = async () => {
         if (!confirmModal.campaign) return;
@@ -163,25 +176,75 @@ export default function QueueDashboard() {
     };
 
     useEffect(() => {
-        fetchCampaigns();
-        const dataInterval = setInterval(fetchCampaigns, 10000); // Poll data every 10s for live updates
+        console.log("[QUEUE_DEBUG] 1. Component Mounted");
+        let isMounted = true;
 
-        // Auto-Process Loop: Triggers if there are active campaigns with pending work
-        const processInterval = setInterval(() => {
-            const hasActiveWork = campaigns.some(c => c.status === 'active' && c.stats.pending > 0);
-            if (hasActiveWork) {
-                console.log("Auto-processing active campaigns...");
-                triggerProcessor();
+        const loadData = async () => {
+            console.log("[QUEUE_DEBUG] 2. Fetch Started");
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+
+            try {
+                setLoading(true);
+                setError(null);
+
+                // Fetch campaigns and stats concurrently using Promise.all
+                const [campaignsRes, statsRes] = await Promise.all([
+                    fetch('/api/queue/campaigns?page=1', { signal: controller.signal }),
+                    fetch('/api/queue/stats', { signal: controller.signal })
+                ]);
+
+                clearTimeout(timeoutId);
+
+                if (!campaignsRes.ok) throw new Error(`Campaigns API failed: ${campaignsRes.statusText} (${campaignsRes.status})`);
+                if (!statsRes.ok) throw new Error(`Stats API failed: ${statsRes.statusText} (${statsRes.status})`);
+
+                const campaignsData = await campaignsRes.json();
+                const statsData = await statsRes.json();
+
+                console.log("[QUEUE_DEBUG] 3. Data Received", { campaignsData, statsData });
+
+                if (isMounted) {
+                    const parsedCampaigns = Array.isArray(campaignsData) ? campaignsData : (campaignsData?.campaigns || []);
+                    setCampaigns(parsedCampaigns);
+                    setStats(statsData || null);
+
+                    const hasActiveWork = parsedCampaigns.some((c: CampaignRecord) => c?.status === 'active' && c?.stats?.pending > 0);
+                    if (hasActiveWork) {
+                        triggerProcessor();
+                    }
+                }
+            } catch (err: unknown) {
+                console.error("[QUEUE_DEBUG] Queue Fetch Error:", err);
+                if (isMounted) {
+                    setError(err instanceof Error ? err.message : 'An unknown error occurred');
+                }
+            } finally {
+                clearTimeout(timeoutId);
+                if (isMounted) {
+                    setLoading(false); // GUARANTEED TO RUN
+                    console.log("[QUEUE_DEBUG] 4. Render Step - Loading set to false");
+                }
             }
-        }, 15000); // Run processor every 15s
+        };
+
+        loadData();
+
+        const dataInterval = setInterval(() => {
+            if (isMounted) {
+                console.log("[QUEUE_DEBUG] Background polling started");
+                fetchCampaigns(); // Poll silently without loading spinner
+            }
+        }, 10000); // Poll data every 10s for live updates
 
         return () => {
+            console.log("[QUEUE_DEBUG] Component Unmounted");
+            isMounted = false; // Cleanup to prevent state updates on unmounted component
             clearInterval(dataInterval);
-            clearInterval(processInterval);
         };
-    }, [campaigns]); // Re-evaluate when campaigns list changes
+    }, [fetchCampaigns, triggerProcessor]);
 
-    if (loading) return <div className="p-8 text-center">{dict.common.loading || "Loading..."}</div>;
+    if (loading || isAuthLoading) return <div className="p-8 text-center">{dict.common.loading || "Loading..."}</div>;
 
     const getStatusLabel = (status: string) => {
         const key = status as keyof typeof dict.queue.status;
@@ -192,10 +255,34 @@ export default function QueueDashboard() {
         return dict.queue?.stats?.[key as keyof typeof dict.queue.stats] || key;
     };
 
-    if (!user || user.user_metadata?.role !== 'admin') {
+    // Role checks are now fully deferred to `hasAccess`.
+    // The previous hardcoded `isAdmin` check was falsely denying access 
+    // to authorized non-admin users.
+
+
+    if (!hasAccess('queue')) {
+        return <UnauthorizedState />;
+    }
+
+    const isViewOnly = !hasAccess('queue_send') && !hasAccess('queue_delete');
+
+    if (error) {
         return (
-            <div className="flex h-[50vh] items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
+            <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6 relative">
+                <div className="border border-red-200 bg-red-50 p-6 rounded-xl flex flex-col items-center justify-center text-center space-y-4 dark:bg-red-900/20 dark:border-red-800">
+                    <AlertCircle className="w-10 h-10 text-red-500" />
+                    <div className="space-y-1">
+                        <h3 className="text-xl font-bold text-red-700 dark:text-red-400">Error Loading Data</h3>
+                        <p className="text-red-600 dark:text-red-300">{error}</p>
+                    </div>
+                    <button
+                        onClick={() => { setLoading(true); fetchCampaigns(); }}
+                        className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+                    >
+                        <RefreshCw className="w-4 h-4" />
+                        Retry
+                    </button>
+                </div>
             </div>
         );
     }
@@ -204,17 +291,26 @@ export default function QueueDashboard() {
         <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6 sm:space-y-8 relative">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="text-center sm:text-left">
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{dict.queue?.title}</h1>
+                    <div className="flex items-center gap-3">
+                        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{dict.queue?.title}</h1>
+                        {isViewOnly && (
+                            <span className="px-2.5 py-1 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-xs font-medium rounded-md border border-gray-200 dark:border-gray-700">
+                                View Only Mode
+                            </span>
+                        )}
+                    </div>
                     <p className="text-gray-500">{dict.queue?.subtitle}</p>
                 </div>
                 <div className="flex gap-3 w-full sm:w-auto">
-                    <button
-                        onClick={() => setIsModalOpen(true)}
-                        className="flex-1 sm:flex-none justify-center flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
-                    >
-                        <Plus className="w-4 h-4" />
-                        {dict.queue?.new_campaign}
-                    </button>
+                    {hasAccess('queue_send') && (
+                        <button
+                            onClick={() => setIsModalOpen(true)}
+                            className="flex-1 sm:flex-none justify-center flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
+                        >
+                            <Plus className="w-4 h-4" />
+                            {dict.queue?.new_campaign}
+                        </button>
+                    )}
                     <button
                         onClick={handleRefresh}
                         disabled={refreshing}
@@ -240,7 +336,7 @@ export default function QueueDashboard() {
                     <h3 className="font-semibold text-gray-900 dark:text-gray-100">{dict.queue?.table?.active_campaigns}</h3>
                 </div>
                 <div className="divide-y divide-gray-200 dark:divide-gray-800">
-                    {campaigns.length === 0 ? (
+                    {(!campaigns || campaigns.length === 0) ? (
                         <div className="p-8 text-center text-gray-500">{dict.queue?.table?.no_campaigns}</div>
                     ) : (
                         campaigns.map((camp) => (
@@ -271,19 +367,19 @@ export default function QueueDashboard() {
                                     <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 mt-2">
                                         <div
                                             className="bg-green-500 h-2.5 rounded-full transition-all duration-500"
-                                            style={{ width: `${camp.stats.total > 0 ? (camp.stats.completed / camp.stats.total) * 100 : 0}%` }}
+                                            style={{ width: `${camp?.stats?.total > 0 ? (camp?.stats?.completed / camp.stats.total) * 100 : 0}%` }}
                                         ></div>
                                     </div>
                                     <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-gray-500">
-                                        <span>{dict.queue?.table?.total}: {camp.stats.total}</span>
-                                        <span className="text-green-600">{dict.queue?.table?.sent}: {camp.stats.completed}</span>
-                                        <span className="text-yellow-600">{dict.queue?.table?.pending}: {camp.stats.pending}</span>
-                                        {camp.stats.failed > 0 && <span className="text-red-500">{dict.queue?.table?.failed}: {camp.stats.failed}</span>}
+                                        <span>{dict.queue?.table?.total}: {camp?.stats?.total}</span>
+                                        <span className="text-green-600">{dict.queue?.table?.sent}: {camp?.stats?.completed}</span>
+                                        <span className="text-yellow-600">{dict.queue?.table?.pending}: {camp?.stats?.pending}</span>
+                                        {camp?.stats?.failed > 0 && <span className="text-red-500">{dict.queue?.table?.failed}: {camp?.stats?.failed}</span>}
                                     </div>
                                 </div>
                                 <div className="flex items-center justify-end sm:justify-end gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                                     {/* Play/Pause Toggle - Hidden if Completed */}
-                                    {camp.status !== 'completed' && (
+                                    {camp.status !== 'completed' && hasAccess('queue_send') && (
                                         camp.status === 'active' ? (
                                             <button
                                                 onClick={() => setConfirmModal({ isOpen: true, type: 'pause', campaign: camp })}
@@ -313,7 +409,7 @@ export default function QueueDashboard() {
                                     </button>
 
                                     {/* Delete - Hidden if Completed */}
-                                    {camp.status !== 'completed' && (
+                                    {camp.status !== 'completed' && hasAccess('queue_delete') && (
                                         <button
                                             onClick={() => setConfirmModal({ isOpen: true, type: 'delete', campaign: camp })}
                                             className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors bg-red-50/50 sm:bg-transparent"
@@ -367,58 +463,63 @@ export default function QueueDashboard() {
                         </div>
                     </div>
                 </div>
-            )}
+            )
+            }
 
             {/* Campaign Details Modal */}
-            {selectedCampaign && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setSelectedCampaign(null)}>
-                    <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-4xl h-[80vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-                        <div className="px-4 sm:px-6 py-4 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gray-50 dark:bg-gray-800/50">
-                            <div>
-                                <h2 className="text-lg font-bold text-gray-900 dark:text-white truncate max-w-[200px] sm:max-w-md">{selectedCampaign.subject}</h2>
-                                <p className="text-sm text-gray-500">{dict.queue?.details_modal?.title}</p>
+            {
+                selectedCampaign && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setSelectedCampaign(null)}>
+                        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-4xl h-[80vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+                            <div className="px-4 sm:px-6 py-4 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gray-50 dark:bg-gray-800/50">
+                                <div>
+                                    <h2 className="text-lg font-bold text-gray-900 dark:text-white truncate max-w-[200px] sm:max-w-md">{selectedCampaign.subject}</h2>
+                                    <p className="text-sm text-gray-500">{dict.queue?.details_modal?.title}</p>
+                                </div>
+                                <button onClick={() => setSelectedCampaign(null)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                                    <X className="w-5 h-5" />
+                                </button>
                             </div>
-                            <button onClick={() => setSelectedCampaign(null)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
-                        <div className="flex-1 overflow-auto p-0">
-                            {loadingDetails ? (
-                                <div className="p-12 text-center text-gray-500">{dict.common.loading}</div>
-                            ) : (
-                                <table className="w-full text-sm text-left">
-                                    <thead className="bg-gray-50 dark:bg-gray-800 text-gray-500 sticky top-0 z-10">
-                                        <tr>
-                                            <th className="px-4 sm:px-6 py-3 font-medium">{dict.queue?.details_modal?.recipients || "Email"}</th>
-                                            <th className="px-4 sm:px-6 py-3 font-medium">{dict.queue?.details_modal?.status || "Status"}</th>
-                                            <th className="px-4 sm:px-6 py-3 font-medium hidden sm:table-cell">{dict.common.error || "Error"}</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                                        {details.map((row) => (
-                                            <tr key={row.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/30">
-                                                <td className="px-4 sm:px-6 py-3 text-gray-900 dark:text-gray-200 truncate max-w-[120px] sm:max-w-none">{row.recipient_email}</td>
-                                                <td className="px-4 sm:px-6 py-3"><Badge status={row.status} label={getStatsLabel(row.status)} /></td>
-                                                <td className="px-4 sm:px-6 py-3 text-red-500 truncate max-w-xs hidden sm:table-cell">{row.last_error}</td>
+                            <div className="flex-1 overflow-auto p-0">
+                                {loadingDetails ? (
+                                    <div className="p-12 text-center text-gray-500">{dict.common.loading}</div>
+                                ) : (
+                                    <table className="w-full text-sm text-left">
+                                        <thead className="bg-gray-50 dark:bg-gray-800 text-gray-500 sticky top-0 z-10">
+                                            <tr>
+                                                <th className="px-4 sm:px-6 py-3 font-medium">{dict.queue?.details_modal?.recipients || "Email"}</th>
+                                                <th className="px-4 sm:px-6 py-3 font-medium">{dict.queue?.details_modal?.status || "Status"}</th>
+                                                <th className="px-4 sm:px-6 py-3 font-medium hidden sm:table-cell">{dict.common.error || "Error"}</th>
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            )}
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                            {details.map((row) => (
+                                                <tr key={row.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/30">
+                                                    <td className="px-4 sm:px-6 py-3 text-gray-900 dark:text-gray-200 truncate max-w-[120px] sm:max-w-none">{row.recipient_email}</td>
+                                                    <td className="px-4 sm:px-6 py-3"><Badge status={row.status} label={getStatsLabel(row.status)} /></td>
+                                                    <td className="px-4 sm:px-6 py-3 text-red-500 truncate max-w-xs hidden sm:table-cell">{row.last_error}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                )}
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* New Campaign Modal */}
-            {isModalOpen && (
-                <ComposeWindow
-                    isModal={true}
-                    onClose={() => { setIsModalOpen(false); fetchCampaigns(); }}
-                    mode="queue"
-                />
-            )}
-        </div>
+            {
+                isModalOpen && (
+                    <ComposeWindow
+                        isModal={true}
+                        onClose={() => { setIsModalOpen(false); fetchCampaigns(); }}
+                        mode="queue"
+                    />
+                )
+            }
+        </div >
     );
 }
 

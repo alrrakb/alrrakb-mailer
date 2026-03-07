@@ -15,9 +15,26 @@ function getSupabaseAdmin() {
     );
 }
 
-export async function GET() {
+export async function GET(req: Request) {
     try {
         const supabaseAdmin = getSupabaseAdmin();
+        const { searchParams } = new URL(req.url);
+        const userId = searchParams.get('userId');
+
+        // Single-user permissions fetch (used by UserPermissionsModal)
+        // Uses service role to bypass RLS (`auth.uid() = id` blocks admin reads of other users)
+        if (userId) {
+            const { data, error } = await supabaseAdmin
+                .from('profiles')
+                .select('permissions')
+                .eq('id', userId)
+                .maybeSingle(); // maybeSingle() returns null instead of 406 when row doesn't exist
+
+            if (error) throw error;
+            return NextResponse.json({ permissions: data?.permissions ?? null });
+        }
+
+        // Full user list fetch (existing behaviour)
         const { data: { users }, error } = await supabaseAdmin.auth.admin.listUsers();
         if (error) throw error;
 
@@ -99,6 +116,37 @@ export async function PATCH(req: Request) {
         return NextResponse.json({ message: `Action ${action} completed successfully`, user: data.user });
     } catch (error: unknown) {
         console.error('API Error:', error);
+        return NextResponse.json({ error: error instanceof Error ? error.message : 'Internal Server Error' }, { status: 500 });
+    }
+}
+
+export async function PUT(req: Request) {
+    // Update a user's permissions — must use service role to bypass RLS
+    // (RLS policy `auth.uid() = id` blocks admins from writing to OTHER users' profiles)
+    try {
+        const body = await req.json();
+        const { userId, permissions } = body;
+
+        if (!userId || !permissions) {
+            return NextResponse.json({ error: 'userId and permissions are required' }, { status: 400 });
+        }
+
+        const supabaseAdmin = getSupabaseAdmin();
+
+        // Upsert: create the profile row if it doesn't exist yet
+        const { error } = await supabaseAdmin
+            .from('profiles')
+            .upsert({ id: userId, permissions, updated_at: new Date().toISOString() }, { onConflict: 'id' });
+
+        if (error) {
+            console.error('[Permissions PUT] DB error:', error);
+            throw error;
+        }
+
+        console.log(`[Permissions PUT] Updated permissions for user ${userId}`);
+        return NextResponse.json({ success: true });
+    } catch (error: unknown) {
+        console.error('[Permissions PUT] API Error:', error);
         return NextResponse.json({ error: error instanceof Error ? error.message : 'Internal Server Error' }, { status: 500 });
     }
 }

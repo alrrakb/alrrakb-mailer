@@ -1,8 +1,21 @@
-import { createClient } from '@/lib/supabase-server';
+import { createClient as createServerClient } from '@/lib/supabase-server';
+import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET() {
-    const supabase = await createClient();
+    // Verify Authentication
+    const supabaseAuth = await createServerClient();
+    const { data: { user } } = await supabaseAuth.auth.getUser();
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    // Use Admin Client to bypass RLS for SELECT
+    const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
 
     try {
         // 1. Fetch Campaigns
